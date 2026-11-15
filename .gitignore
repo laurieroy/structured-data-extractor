@@ -8,3 +8,16 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+.devin/config.local.json
+
+# Test/runtime artifacts
+.pytest_cache/
+dlq/
+
+.DS_Store
