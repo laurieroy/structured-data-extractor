@@ -16,9 +16,9 @@ pytest, pytest-asyncio.
 - LLM provider / model: `________` (read from env, e.g. `OPENAI_API_KEY`, `OPENAI_MODEL`)
 - Structured-output method: `________` (OpenAI Structured Outputs, Anthropic tool use, or `instructor`)
 - Extraction domain: `________` (default: commercial invoices)
-- Reconciliation rule: `________` (suggested: `sum(line_total) ≈ subtotal` AND
-  `subtotal + tax_amount ≈ total_amount`, both within 0.02 — pick one clear rule and document it)
-- Max retries / backoff: `________` (default: 3 retries, exponential backoff)
+- Reconciliation rule: `sum(line_total) ≈ subtotal` AND
+  `subtotal + tax_amount ≈ total_amount`, both within 0.02 
+- Max retries / backoff: `default: 3 retries, exponential backoff`
 - UI: `Streamlit` (assignment also allows FastAPI + HTML or Chainlit)
 - Deployment: Option A (cloud: Streamlit Community Cloud / Render / Railway / HF Spaces)
   or Option B (`Dockerfile` + `docker-compose.yml`)
@@ -78,6 +78,11 @@ pytest, pytest-asyncio.
   milestone: give the user `git switch -c mN-<word>` to run before any code
   changes (you never run git yourself). All milestone commits happen on that
   branch; the user merges when done.
+- QA gate before merge: the user integrates a milestone branch into main (merge,
+  rebase, or squash) only after QA passes — `uv run pytest -v` all green (user
+  runs it), plus `/web-qa <url>`
+  (`.devin/skills/web-qa/SKILL.md`) against the running app once the UI exists
+  (M5 onward). The agent runs /web-qa; the user runs tests and starts the app.
 
 ## Prompt log
 - `ai_prompt_log.md` is a graded deliverable: it must contain the exact generation prompt,
@@ -138,9 +143,9 @@ Do this first, before any other file is created. Ask the user to confirm, then:
 
 ## Tests
 Confirm names and exact criteria against `docs/week4_assignment.md` §5 before writing.
-All LLM calls are mocked. NOTE: repo stubs are currently named
-`test_schemas.py`/`test_extractor.py`/`test_fallback.py`/`test_app.py`; align to the
-assignment's `test_extraction.py` + `test_fallbacks.py` when writing them.
+All LLM calls are mocked. Use the assignment's names: `test_extraction.py` +
+`test_fallbacks.py`. The older stubs (`test_schemas.py`/`test_extractor.py`/
+`test_fallback.py`/`test_app.py`) should be renamed or removed, not kept alongside.
 - Test 1 (M1 as schema-level golden; pipeline attempt-1 check in M4): golden
   document validates; pipeline version asserts Attempt 1 with zero validation errors.
 - Test 2 (M1): schema constraints — quantity ≤ 0 or negative totals raise
@@ -155,9 +160,9 @@ assignment's `test_extraction.py` + `test_fallbacks.py` when writing them.
   `json_repair` output is re-validated.
 
 ## Milestones
-Each milestone ends with: test command for the user (where relevant), prompt log entry,
-sensitive-info recheck, commit command, stop. Aligned to M0–M7 in
-`docs/week4_work_plan.md`.
+Each milestone ends with: test command for the user (where relevant), QA gate before
+merge (see Working style), prompt log entry, sensitive-info recheck, commit command,
+stop. Aligned to M0–M7 in `docs/week4_work_plan.md`.
 
 - **M0 — Setup and decisions**: secrets setup above (`.gitignore`, `.devin/config.json`,
   `.env.example`); deps already in `pyproject.toml`, Python 3.11 pinned,
