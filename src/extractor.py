@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pypdf import PdfReader
 
 from src.fallback import run_fallback
-from src.normalize import parse_date, parse_money
+from src.normalize import normalize_invoice_data
 from src.schemas import ExtractionResult, InvoiceExtraction
 
 load_dotenv()
@@ -80,14 +80,9 @@ def extract_with_retry(raw_text: str, max_retries: int = 3) -> ExtractionResult:
                 {"role": "user", "content": EXTRACTION_PROMPT.format(raw_text=raw_text)}
             ],
         )
-        data = invoice.model_dump()
-        data["invoice_date"] = parse_date(data["invoice_date"])
-        for key in ("subtotal", "tax_amount", "total_amount"):
-            data[key] = parse_money(data[key])
-        for item in data["line_items"]:
-            item["unit_price"] = parse_money(item["unit_price"])
-            item["line_total"] = parse_money(item["line_total"])
-        invoice = InvoiceExtraction(**data)
+        invoice = InvoiceExtraction(
+            **normalize_invoice_data(invoice.model_dump())
+        )
         return ExtractionResult(
             validated_data=invoice,
             attempts_used=1,

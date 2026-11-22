@@ -260,5 +260,5 @@ findings, say so explicitly — do not manufacture findings.
 
 ### Fixes made
 
-None — audit was review-only; fixes are M4 scope (to be applied on
-`m4-resilience`).
+None — audit was review-only. Fixes applied as separate commits on
+`m3-audit`, one per finding, test-first (see commit history).

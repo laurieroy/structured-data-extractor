@@ -6,6 +6,7 @@ from pathlib import Path
 from json_repair import repair_json
 from pydantic import ValidationError
 
+from src.normalize import normalize_invoice_data
 from src.schemas import ExtractionResult, InvoiceExtraction
 
 DLQ_PATH = Path("dlq/failed_extractions.jsonl")
@@ -74,7 +75,9 @@ def run_fallback(
             error_log.append(f"attempt {attempt}: API error: {exc}")
             continue
         try:
-            invoice = InvoiceExtraction(**json.loads(last_raw))
+            invoice = InvoiceExtraction(
+                **normalize_invoice_data(json.loads(last_raw))
+            )
             return ExtractionResult(
                 validated_data=invoice,
                 attempts_used=attempt,
@@ -86,18 +89,20 @@ def run_fallback(
         except ValidationError as exc:
             last_errors = exc.errors()
             error_log.append(f"attempt {attempt}: {_errors_text(last_errors)}")
+        except ValueError as exc:
+            error_log.append(f"attempt {attempt}: normalization failed: {exc}")
 
     repaired = repair_json(last_raw)
     try:
         data = json.loads(repaired) if isinstance(repaired, str) else repaired
-        invoice = InvoiceExtraction(**data)
+        invoice = InvoiceExtraction(**normalize_invoice_data(data))
         return ExtractionResult(
             validated_data=invoice,
             attempts_used=max_retries,
             error_log=error_log,
             execution_status="REPAIRED_VIA_REFLECTION",
         )
-    except (ValidationError, json.JSONDecodeError, TypeError) as exc:
+    except (ValidationError, ValueError, TypeError) as exc:
         error_log.append(f"json_repair stage: {exc}")
 
     _write_dlq(raw_text, last_raw, error_log)

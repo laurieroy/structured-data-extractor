@@ -57,3 +57,18 @@ def parse_date(value) -> date:
         except ValueError:
             continue
     raise ValueError(f"unparseable date value: {value!r}")
+
+
+def normalize_invoice_data(data: dict) -> dict:
+    data = dict(data)
+    if "invoice_date" in data:
+        data["invoice_date"] = parse_date(data["invoice_date"])
+    for key in ("subtotal", "tax_amount", "total_amount"):
+        if key in data:
+            data[key] = parse_money(data[key])
+    for item in data.get("line_items") or []:
+        if "unit_price" in item:
+            item["unit_price"] = parse_money(item["unit_price"])
+        if "line_total" in item:
+            item["line_total"] = parse_money(item["line_total"])
+    return data
