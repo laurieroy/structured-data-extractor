@@ -424,8 +424,28 @@ changes.
 - `developing-with-streamlit` skill was installed as a symlink into the
   gitignored `.venv` under `.agents/skills/` — copied real files to
   `.devin/skills/developing-with-streamlit/` so it survives a fresh clone
-
+- **Reflection loop crashes on non-text content blocks** — found via a real
+  travel-invoice PDF (`Roy-travel-BlueHeron2022_redacted.pdf`):
+  `resp.content[0].text` in `run_fallback` assumed the first content block
+  is text; `claude-haiku-5-5` returns a `ThinkingBlock` first, so every
+  reflection attempt died with `'ThinkingBlock' object has no attribute
+  'text'` and the loop never actually re-prompted
+- **`last_raw` captures the API envelope, not the model's output** — same
+  PDF: `_last_raw_from` (`src/extractor.py`) dumped the whole Anthropic
+  `Message` (id/usage/content wrapper) instead of the `tool_use` block's
+  `input`, so the reflection prompt's "previous malformed JSON" and the
+  `json_repair` stage saw an envelope, not the invoice JSON
+  (`Field required` × 8)
+![Screenshot: reflection loop crashing on ThinkingBlock](docs/screenshots/bug_screenshot.png)
 ### Fixes made
 
 - `sys.path.insert(0, repo_root)` at the top of `src/app.py` before the
-  `from src.*` imports; buttons now use `width="stretch"` (pending commit)
+  `from src.*` imports; buttons now use `width="stretch"` (`d83d38d`)
+- `run_fallback` now joins `getattr(b, "text", "")` over all
+  `resp.content` blocks, skipping thinking/tool_use blocks (`115d798`)
+- `_last_raw_from` extracts the `tool_use` block's `input` dict when the
+  completion exposes a `content` list; falls back to `model_dump_json` /
+  `str(exc)` otherwise (`06e171b`)
+- Regression tests `test_reflection_skips_thinking_blocks` and
+  `test_last_raw_extracts_tool_use_input` added; `uv run pytest -v`
+  → 22 passed

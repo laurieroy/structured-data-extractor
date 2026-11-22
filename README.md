@@ -166,8 +166,8 @@ regression test (details in `ai_prompt_log.md`):
 | Messy values hit Pydantic unparsed | `parse_money`/`parse_date` dead on the primary path, absent on fallback/repair | `0d72718` |
 | Reflection prompt lacked real malformed JSON | `getattr(exc, "raw_output")` was a hallucinated attribute | `eee7903` |
 | Auth/network errors fed into repair loop | `except Exception` misclassified non-retryable errors | `9211635` |
-| Every reflection attempt crashed | `resp.content[0].text` — Haiku returns a `ThinkingBlock` first | `a31add0` |
-| `last_raw` was the API envelope | dumped the whole `Message` instead of the `tool_use` input | `6638065` |
+| Every reflection attempt crashed | `resp.content[0].text` — Haiku returns a `ThinkingBlock` first | `115d798` |
+| `last_raw` was the API envelope | dumped the whole `Message` instead of the `tool_use` input | `06e171b` |
 
 ---
 
