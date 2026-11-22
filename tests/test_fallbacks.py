@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.extractor import extract_with_retry
 from src.fallback import run_fallback
 
 VALID_PAYLOAD = {
@@ -139,3 +140,46 @@ def test_json_repair_normalizes_messy_values(monkeypatch, tmp_path):
     assert result.validated_data is not None
     assert result.validated_data.invoice_date == date(2024, 10, 12)
     assert result.validated_data.total_amount == pytest.approx(13494.60)
+
+
+def _capture_run_fallback(monkeypatch):
+    captured = {}
+
+    def spy(*args, **kwargs):
+        captured.update(kwargs)
+        return "sentinel"
+
+    monkeypatch.setattr("src.extractor.run_fallback", spy)
+    return captured
+
+
+def test_stage1_failure_passes_raw_completion_to_fallback(monkeypatch):
+    completion = Mock()
+    completion.model_dump_json.return_value = '{"invoice_number": "BAD"'
+    exc = RuntimeError("validation failed")
+    exc.last_completion = completion
+
+    client = Mock()
+    client.messages.create.side_effect = exc
+    monkeypatch.setattr(
+        "src.extractor._clients", lambda: (client, Mock(), "test-model")
+    )
+
+    captured = _capture_run_fallback(monkeypatch)
+    result = extract_with_retry("INVOICE\nTotal due: $5,184.00")
+
+    assert result == "sentinel"
+    assert captured["last_raw"] == '{"invoice_number": "BAD"'
+
+
+def test_stage1_failure_uses_str_exc_when_no_completion(monkeypatch):
+    client = Mock()
+    client.messages.create.side_effect = RuntimeError("validation failed")
+    monkeypatch.setattr(
+        "src.extractor._clients", lambda: (client, Mock(), "test-model")
+    )
+
+    captured = _capture_run_fallback(monkeypatch)
+    extract_with_retry("INVOICE\nTotal due: $5,184.00")
+
+    assert captured["last_raw"] == "validation failed"

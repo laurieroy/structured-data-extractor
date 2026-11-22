@@ -68,6 +68,14 @@ def _clients():
     return instructor.from_anthropic(raw_client), raw_client, model
 
 
+def _last_raw_from(exc: Exception) -> str:
+    completion = getattr(exc, "last_completion", None)
+    if completion is None:
+        return str(exc)
+    dump = getattr(completion, "model_dump_json", None)
+    return dump() if dump else str(completion)
+
+
 def extract_with_retry(raw_text: str, max_retries: int = 3) -> ExtractionResult:
     client, raw_client, model = _clients()
     error_log: list[str] = []
@@ -96,7 +104,7 @@ def extract_with_retry(raw_text: str, max_retries: int = 3) -> ExtractionResult:
             client,
             model,
             raw_text,
-            last_raw=getattr(exc, "raw_output", None) or str(exc),
+            last_raw=_last_raw_from(exc),
             error_log=error_log,
             max_retries=max_retries,
         )
