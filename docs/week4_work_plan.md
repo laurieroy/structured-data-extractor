@@ -36,8 +36,8 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 
 | # | Milestone | Effort | Status |
 |---|---|---|---|
-| M0 | Setup and decisions | ~5% | ☐ |
-| M1 | Data contract (schemas + tests 1-3) | ~15% | ☐ |
+| M0 | Setup and decisions | ~5% | ☑ |
+| M1 | Data contract (schemas + tests 1-3) | ~15% | ☑ |
 | M2 | Baseline AI draft (captured untouched) | ~10% | ☐ |
 | M3 | Audit and refactor | ~15% | ☐ |
 | M4 | Resilience: reflection, repair, DLQ (tests 4-5) | ~25% | ☐ |
@@ -52,10 +52,10 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 **Goal:** a runnable empty project and the key decisions locked in.
 
 **Decisions to make first**
-- [ ] LLM provider and library (default: OpenAI or Anthropic + `instructor`)
-- [ ] Extraction domain (default: commercial invoices)
-- [ ] Reconciliation rule, written down (suggested: `sum(line_total) ≈ subtotal` and `subtotal + tax_amount ≈ total_amount`, tolerance 0.02)
-- [ ] Max retries and backoff policy (default: 3 retries, exponential backoff)
+- [x] LLM provider and library (default: OpenAI or Anthropic + `instructor`)
+- [x] Extraction domain (default: commercial invoices)
+- [x] Reconciliation rule, written down (suggested: `sum(line_total) ≈ subtotal` and `subtotal + tax_amount ≈ total_amount`, tolerance 0.02)
+- [x] Max retries and backoff policy (default: 3 retries, exponential backoff)
 
 **Agent task:** scaffold the repo exactly per the assignment structure; run the `uv` setup commands; create `.env.example`, `.gitignore`, `AGENTS.md`.
 
@@ -76,21 +76,21 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 **Agent task:** write `tests/test_extraction.py` (Tests 1-3) first, then `src/schemas.py`.
 
 **Schema checklist**
-- [ ] `LineItem`: description, quantity (int > 0), unit_price (> 0), line_total
-- [ ] `InvoiceExtraction`: invoice_number, vendor_name, invoice_date, line_items, subtotal, tax_amount, total_amount, currency (`Literal["USD","EUR","GBP"]`)
-- [ ] `@field_validator` for ISO-8601 dates, positive quantities, clean tax percentages, regex on invoice number
-- [ ] `@model_validator(mode="after")` implementing the chosen reconciliation rule within 0.02
-- [ ] Pre-parsers for currency strings and non-standard dates (decide now whether they live in the schema or in ingestion)
+- [x] `LineItem`: description, quantity (int > 0), unit_price (> 0), line_total
+- [x] `InvoiceExtraction`: invoice_number, vendor_name, invoice_date, line_items, subtotal, tax_amount, total_amount, currency (`Literal["USD","EUR","GBP"]`)
+- [x] `@field_validator` for ISO-8601 dates, positive quantities, clean tax percentages, regex on invoice number
+- [x] `@model_validator(mode="after")` implementing the chosen reconciliation rule within 0.02
+- [x] Pre-parsers for currency strings and non-standard dates (decided: live in ingestion — `src/normalize.py`)
 
 **Tests in this milestone**
-- [ ] Test 1: golden payload validates (the *LLM-driven* attempt-1 check comes in M2)
-- [ ] Test 2: quantity ≤ 0 and negative totals are rejected
-- [ ] Test 3: mismatched sums are rejected
+- [x] Test 1: golden payload validates (the *LLM-driven* attempt-1 check comes in M2)
+- [x] Test 2: quantity ≤ 0 and negative totals are rejected
+- [x] Test 3: mismatched sums are rejected
 
 **Definition of Done**
-- [ ] Tests 2 and 3 pass; Test 1 passes against a hand-built golden payload
-- [ ] No v1 syntax
-- [ ] Committed
+- [x] Tests 2 and 3 pass; Test 1 passes against a hand-built golden payload
+- [x] No v1 syntax
+- [x] Committed
 
 ---
 
