@@ -11,3 +11,4 @@ The major choices I made for this build, and why.
 - **Deployment:** Option A, cloud — secrets live in the host's secret manager. Host picked in M6.
 - **DLQ sink:** `dlq/failed_extractions.jsonl` — one JSON object per line (timestamp, raw payload, error list, failure flag). Simple to inspect and easy to replay.
 - **Extractor model:** `claude-haiku-5-5` default — cheapest, and extraction is its stated use case; bump `EXTRACTOR_MODEL` to `claude-sonnet-5-5` if it struggles on the messy samples.
+- **M2 baseline:** generated in-session (devin/swe-2-high) with a fully specified prompt including all AGENTS.md constraints — preferred a clean starting point over a deliberately loose spec.

@@ -75,3 +75,100 @@ None found — generated code passed all 4 tests on first run (`uv run pytest -v
 
 None. Raw output committed as-is on `m1-schemas`. Empty M0 stubs removed
 (`tests/test_schemas.py`, `test_extractor.py`, `test_fallback.py`, `test_app.py`).
+
+## M2 — Baseline AI draft (captured untouched)
+
+- **Model used:** devin/swe-2-high (self-reported)
+- **Date:** 2026-11-21
+
+### Prompt (verbatim)
+
+```text
+You are a Staff AI Systems Engineer. Build the extraction and resilience
+layers of a fault-tolerant pipeline that turns messy PDFs/HTML into
+strictly validated Pydantic v2 invoice records, using Anthropic's Claude
+via the `instructor` library.
+
+The data contract already exists and is tested — import it, do NOT modify
+or regenerate it:
+
+- src/schemas.py: LineItem, InvoiceExtraction (field validators plus a
+  model_validator enforcing sum(line_total) ≈ subtotal and
+  subtotal + tax_amount ≈ total_amount, each within 0.02), and
+  ExtractionResult(
+      validated_data: Optional[InvoiceExtraction],
+      attempts_used: int,
+      error_log: list[str],
+      execution_status: Literal["SUCCESS", "REPAIRED_VIA_REFLECTION",
+                                "DLQ_FAILED"],
+  )
+- src/normalize.py: parse_money(value) -> float and
+  parse_date(value) -> date, which clean strings like "$1,249.50" and
+  "12th of Oct, 2024" before Pydantic sees them.
+
+Produce exactly two files, plus a runnable __main__ demo in extractor.py.
+No tests — they come later.
+
+### src/extractor.py — ingestion + Stage 1
+- extract_text(source): accepts a file path, bytes, or raw string; pulls
+  text from PDFs with pypdf and from HTML with beautifulsoup4; returns
+  plain text.
+- LLM client: instructor-wrapped Anthropic client. Read ANTHROPIC_API_KEY
+  and the model name from the EXTRACTOR_MODEL environment variable
+  (python-dotenv loads .env locally). Never hard-code a key or model
+  name.
+- extract_with_retry(raw_text: str, max_retries: int = 3)
+  -> ExtractionResult
+  Stage 1: constrained decoding — one instructor call returning
+  InvoiceExtraction, then feed messy fields through parse_money /
+  parse_date before final validation. On success return
+  ExtractionResult(execution_status="SUCCESS", attempts_used=1).
+- `if __name__ == "__main__":` block: run extraction on
+  samples/invoice_messy.pdf and print the ExtractionResult.
+
+### src/fallback.py — Stage 2 + Stage 3
+- Stage 2 reflection loop: on ValidationError, re-prompt with ONLY the
+  relevant context snippet from the source text, the previous malformed
+  JSON, and the exact err['loc'] / err['msg'] entries — never resend the
+  full document. Bounded retries (max_retries=3) with exponential
+  backoff. Success here returns
+  ExtractionResult(execution_status="REPAIRED_VIA_REFLECTION").
+- Stage 3: after retries are exhausted, run json_repair on the last raw
+  payload and re-validate the repaired output through InvoiceExtraction —
+  repair never bypasses the validation gate.
+- If all stages fail: append a DLQ entry to
+  dlq/failed_extractions.jsonl (one JSON object per line: timestamp, raw
+  payload, error list, failure flag) and return
+  ExtractionResult(validated_data=None, attempts_used=<n>,
+  error_log=[...], execution_status="DLQ_FAILED"). The failure path must
+  never raise and never return a partial or all-None invoice object.
+
+Hard constraints:
+- Pydantic v2 API only: @field_validator, @model_validator(mode="after"),
+  .model_dump(). Never @validator, never .dict().
+- Every failure path returns an explicit ExtractionResult — the pipeline
+  never crashes and never swallows errors silently.
+- Secrets come from environment variables only.
+```
+
+### What was generated
+
+- `src/extractor.py` — `extract_text` (PDF/HTML/raw-string ingestion),
+  `_clients` (env-configured instructor + raw Anthropic clients),
+  `extract_with_retry` (Stage 1 constrained decoding + defensive
+  re-normalization), `__main__` demo on `samples/invoice_messy.pdf`
+- `src/fallback.py` — `run_fallback` (Stage 2 reflection loop with
+  `_context_snippet` window extraction and exponential backoff, Stage 3
+  `json_repair` + re-validation, DLQ writer to
+  `dlq/failed_extractions.jsonl`)
+
+### Bugs / issues found
+
+None found at runtime — `uv run python -m src.extractor` on
+`samples/invoice_messy.pdf` returned `execution_status="SUCCESS"` on
+attempt 1 with all fields populated (INV-2024-0847, Northwind Consulting
+LLC, 3 line items, USD). `uv run pytest -v`: 4 passed.
+
+### Fixes made
+
+None — baseline committed untouched; fixes are M3 scope.

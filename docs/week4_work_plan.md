@@ -101,14 +101,14 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 **Agent task:** run the sample prompt from the assignment (adapted to your decisions) to generate `extractor.py` and `fallback.py`. **Do not let the agent refine or self-correct.**
 
 **Human steps**
-- [ ] Copy the exact prompt into `ai_prompt_log.md`
-- [ ] Save the raw generated code (commit it as its own commit: `baseline: unmodified AI output`)
-- [ ] Get Stage 1 working on `invoice_messy.pdf` just enough to confirm it runs; note any failures but don't fix yet
+- [x] Copy the exact prompt into `ai_prompt_log.md`
+- [x] Save the raw generated code (commit it as its own commit: `baseline: unmodified AI output`)
+- [x] Get Stage 1 working on `invoice_messy.pdf` just enough to confirm it runs; note any failures but don't fix yet
 
 **Definition of Done**
-- [ ] Prompt and raw output logged
-- [ ] Baseline committed separately
-- [ ] Golden PDF extracts (or failures are noted)
+- [x] Prompt and raw output logged
+- [x] Baseline committed separately
+- [x] Golden PDF extracts (or failures are noted)
 
 ---
 
