@@ -105,10 +105,16 @@ def run_fallback(
     except (ValidationError, ValueError, TypeError) as exc:
         error_log.append(f"json_repair stage: {exc}")
 
+    return dlq_result(raw_text, last_raw, error_log, attempts_used=max_retries)
+
+
+def dlq_result(
+    raw_text: str, last_raw: str, error_log: list[str], attempts_used: int
+) -> ExtractionResult:
     _write_dlq(raw_text, last_raw, error_log)
     return ExtractionResult(
         validated_data=None,
-        attempts_used=max_retries,
+        attempts_used=attempts_used,
         error_log=error_log,
         execution_status="DLQ_FAILED",
     )

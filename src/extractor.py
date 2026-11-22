@@ -3,12 +3,18 @@ import os
 from pathlib import Path
 
 import instructor
-from anthropic import Anthropic
+from anthropic import (
+    APIError,
+    Anthropic,
+    AuthenticationError,
+    BadRequestError,
+    PermissionDeniedError,
+)
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from pypdf import PdfReader
 
-from src.fallback import run_fallback
+from src.fallback import dlq_result, run_fallback
 from src.normalize import normalize_invoice_data
 from src.schemas import ExtractionResult, InvoiceExtraction
 
@@ -98,7 +104,13 @@ def extract_with_retry(raw_text: str, max_retries: int = 3) -> ExtractionResult:
             execution_status="SUCCESS",
         )
     except Exception as exc:
-        error_log.append(f"attempt 1: {exc}")
+        if isinstance(
+            exc, (AuthenticationError, BadRequestError, PermissionDeniedError)
+        ):
+            error_log.append(f"attempt 1: non-retryable API error: {exc}")
+            return dlq_result(raw_text, str(exc), error_log, attempts_used=1)
+        kind = "API error" if isinstance(exc, APIError) else "extraction error"
+        error_log.append(f"attempt 1: {kind}: {exc}")
         return run_fallback(
             raw_client,
             client,

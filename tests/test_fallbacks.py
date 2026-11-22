@@ -2,7 +2,9 @@ import json
 from datetime import date
 from unittest.mock import Mock
 
+import httpx2
 import pytest
+from anthropic import APIConnectionError, AuthenticationError
 
 from src.extractor import extract_with_retry
 from src.fallback import run_fallback
@@ -183,3 +185,48 @@ def test_stage1_failure_uses_str_exc_when_no_completion(monkeypatch):
     extract_with_retry("INVOICE\nTotal due: $5,184.00")
 
     assert captured["last_raw"] == "validation failed"
+
+
+def _request():
+    return httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+
+
+def test_stage1_auth_error_goes_straight_to_dlq(monkeypatch, tmp_path):
+    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
+    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
+
+    client = Mock()
+    client.messages.create.side_effect = AuthenticationError(
+        message="invalid x-api-key",
+        response=httpx2.Response(401, request=_request()),
+        body=None,
+    )
+    monkeypatch.setattr(
+        "src.extractor._clients", lambda: (client, Mock(), "test-model")
+    )
+    captured = _capture_run_fallback(monkeypatch)
+
+    result = extract_with_retry("INVOICE\nTotal due: $5,184.00")
+
+    assert result.execution_status == "DLQ_FAILED"
+    assert result.validated_data is None
+    assert result.attempts_used == 1
+    assert captured == {}
+    assert any("non-retryable" in e for e in result.error_log)
+    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
+    assert entry["failed"] is True
+
+
+def test_stage1_transient_api_error_enters_fallback(monkeypatch):
+    client = Mock()
+    client.messages.create.side_effect = APIConnectionError(
+        message="connection lost", request=_request()
+    )
+    monkeypatch.setattr(
+        "src.extractor._clients", lambda: (client, Mock(), "test-model")
+    )
+    captured = _capture_run_fallback(monkeypatch)
+
+    extract_with_retry("INVOICE\nTotal due: $5,184.00")
+
+    assert captured["error_log"][-1].startswith("attempt 1: API error")
