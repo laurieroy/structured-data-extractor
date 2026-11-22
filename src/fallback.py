@@ -63,12 +63,16 @@ def run_fallback(
             last_raw=last_raw,
             errors=errors_text,
         )
-        resp = raw_client.messages.create(
-            model=model,
-            max_tokens=2048,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        last_raw = resp.content[0].text
+        try:
+            resp = raw_client.messages.create(
+                model=model,
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            last_raw = resp.content[0].text
+        except Exception as exc:
+            error_log.append(f"attempt {attempt}: API error: {exc}")
+            continue
         try:
             invoice = InvoiceExtraction(**json.loads(last_raw))
             return ExtractionResult(
