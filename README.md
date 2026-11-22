@@ -162,12 +162,12 @@ regression test (details in `ai_prompt_log.md`):
 
 | Bug | Root cause | Fix |
 |---|---|---|
-| Reflection loop crashed on API errors | unguarded `messages.create` inside the retry loop | `2c8dda2` |
-| Messy values hit Pydantic unparsed | `parse_money`/`parse_date` dead on the primary path, absent on fallback/repair | `0d72718` |
-| Reflection prompt lacked real malformed JSON | `getattr(exc, "raw_output")` was a hallucinated attribute | `eee7903` |
-| Auth/network errors fed into repair loop | `except Exception` misclassified non-retryable errors | `9211635` |
-| Every reflection attempt crashed | `resp.content[0].text` — Haiku returns a `ThinkingBlock` first | `115d798` |
-| `last_raw` was the API envelope | dumped the whole `Message` instead of the `tool_use` input | `06e171b` |
+| Reflection loop crashed on API errors | unguarded `messages.create` inside the retry loop | `a20038a` |
+| Messy values hit Pydantic unparsed | `parse_money`/`parse_date` dead on the primary path, absent on fallback/repair | `def4637` |
+| Reflection prompt lacked real malformed JSON | `getattr(exc, "raw_output")` was a hallucinated attribute | `a520112` |
+| Auth/network errors fed into repair loop | `except Exception` misclassified non-retryable errors | `79b0044` |
+| Every reflection attempt crashed | `resp.content[0].text` — Haiku returns a `ThinkingBlock` first | `995c526` |
+| `last_raw` was the API envelope | dumped the whole `Message` instead of the `tool_use` input | `8b73ac6` |
 
 ---
 

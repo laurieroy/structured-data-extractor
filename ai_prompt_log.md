@@ -262,18 +262,18 @@ findings, say so explicitly — do not manufacture findings.
 
 | # | Finding | Severity | Fixed in |
 |---|---------|----------|----------|
-| 1 | Unguarded API call in reflection loop → crash on API errors | blocker | `2c8dda2` |
-| 2 | Normalization dead on primary path, absent on fallback/repair paths | high | `0d72718` |
-| 3 | `last_raw` = `str(exc)`; reflection/DLQ lack real malformed JSON | high | `eee7903` |
-| 4 | `except Exception` funnels auth/network errors into repair loop | high | `9211635` |
+| 1 | Unguarded API call in reflection loop → crash on API errors | blocker | `a20038a` |
+| 2 | Normalization dead on primary path, absent on fallback/repair paths | high | `def4637` |
+| 3 | `last_raw` = `str(exc)`; reflection/DLQ lack real malformed JSON | high | `a520112` |
+| 4 | `except Exception` funnels auth/network errors into repair loop | high | `79b0044` |
 | 5 | Reflection loop uses raw client; fenced JSON fails `json.loads` | medium | open |
 | 6 | Snippet heuristic searches schema names → degenerates to `raw_text[:800]` | low | open |
-| 7 | No timeout on API calls | low | `b40d919` (120s) |
-| 8 | `repair_json` call outside try | low | `b40d919` |
-| 9 | Unguarded DLQ write | low | `b40d919` |
-| 10 | `error_log[-1]` IndexError on empty log | low | `b40d919` |
-| 11 | `client` parameter unused in `run_fallback` | low | `b40d919` |
-| 12 | instructor `max_retries` unspecified → possible `attempts_used` undercount | low | `b40d919` (pinned 0) |
+| 7 | No timeout on API calls | low | `554005b` (120s) |
+| 8 | `repair_json` call outside try | low | `554005b` |
+| 9 | Unguarded DLQ write | low | `554005b` |
+| 10 | `error_log[-1]` IndexError on empty log | low | `554005b` |
+| 11 | `client` parameter unused in `run_fallback` | low | `554005b` |
+| 12 | instructor `max_retries` unspecified → possible `attempts_used` undercount | low | `554005b` (pinned 0) |
 | 13 | `json_repair` success labeled `REPAIRED_VIA_REFLECTION` | low | open |
 | 14 | Uniform backoff for validation and transport errors | low | open |
 | — | Pydantic v1/v2 collisions, hard-coded secrets, unbounded retries | — | none found |
@@ -282,7 +282,7 @@ findings, say so explicitly — do not manufacture findings.
 
 Findings 1–4 fixed as separate commits on `m3-audit`, test-first
 (regression tests in `tests/test_fallbacks.py`). Findings 7–12 fixed in
-`b40d919` on `m4-resilience`. Findings 5, 6, 13, 14 left open — accepted
+`554005b` on `m4-resilience`. Findings 5, 6, 13, 14 left open — accepted
 as-is or deferred.
 
 ## M4 — Resilience: Tests 4–5 + UI hooks
@@ -440,12 +440,12 @@ changes.
 ### Fixes made
 
 - `sys.path.insert(0, repo_root)` at the top of `src/app.py` before the
-  `from src.*` imports; buttons now use `width="stretch"` (`d83d38d`)
+  `from src.*` imports; buttons now use `width="stretch"` (`94ac572`)
 - `run_fallback` now joins `getattr(b, "text", "")` over all
-  `resp.content` blocks, skipping thinking/tool_use blocks (`115d798`)
+  `resp.content` blocks, skipping thinking/tool_use blocks (`995c526`)
 - `_last_raw_from` extracts the `tool_use` block's `input` dict when the
   completion exposes a `content` list; falls back to `model_dump_json` /
-  `str(exc)` otherwise (`06e171b`)
+  `str(exc)` otherwise (`8b73ac6`)
 - Regression tests `test_reflection_skips_thinking_blocks` and
   `test_last_raw_extracts_tool_use_input` added; `uv run pytest -v`
   → 22 passed
