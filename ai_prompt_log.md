@@ -268,12 +268,12 @@ findings, say so explicitly — do not manufacture findings.
 | 4 | `except Exception` funnels auth/network errors into repair loop | high | `9211635` |
 | 5 | Reflection loop uses raw client; fenced JSON fails `json.loads` | medium | open |
 | 6 | Snippet heuristic searches schema names → degenerates to `raw_text[:800]` | low | open |
-| 7 | No timeout on API calls | low | open |
-| 8 | `repair_json` call outside try | low | open |
-| 9 | Unguarded DLQ write | low | open |
-| 10 | `error_log[-1]` IndexError on empty log | low | open |
-| 11 | `client` parameter unused in `run_fallback` | low | open |
-| 12 | instructor `max_retries` unspecified → possible `attempts_used` undercount | low | open |
+| 7 | No timeout on API calls | low | `b40d919` (120s) |
+| 8 | `repair_json` call outside try | low | `b40d919` |
+| 9 | Unguarded DLQ write | low | `b40d919` |
+| 10 | `error_log[-1]` IndexError on empty log | low | `b40d919` |
+| 11 | `client` parameter unused in `run_fallback` | low | `b40d919` |
+| 12 | instructor `max_retries` unspecified → possible `attempts_used` undercount | low | `b40d919` (pinned 0) |
 | 13 | `json_repair` success labeled `REPAIRED_VIA_REFLECTION` | low | open |
 | 14 | Uniform backoff for validation and transport errors | low | open |
 | — | Pydantic v1/v2 collisions, hard-coded secrets, unbounded retries | — | none found |
@@ -281,8 +281,9 @@ findings, say so explicitly — do not manufacture findings.
 ### Fixes made
 
 Findings 1–4 fixed as separate commits on `m3-audit`, test-first
-(regression tests in `tests/test_fallbacks.py`). Findings 5–14 left open —
-documented for M4 or accepted as-is.
+(regression tests in `tests/test_fallbacks.py`). Findings 7–12 fixed in
+`b40d919` on `m4-resilience`. Findings 5, 6, 13, 14 left open — accepted
+as-is or deferred.
 
 ## M4 — Resilience: Tests 4–5 + UI hooks
 

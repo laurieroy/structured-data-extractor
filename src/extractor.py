@@ -70,7 +70,7 @@ def _clients():
         raise RuntimeError("ANTHROPIC_API_KEY is not set")
     if not model:
         raise RuntimeError("EXTRACTOR_MODEL is not set")
-    raw_client = Anthropic(api_key=api_key)
+    raw_client = Anthropic(api_key=api_key, timeout=120)
     return instructor.from_anthropic(raw_client), raw_client, model
 
 
@@ -101,6 +101,7 @@ def extract_with_retry(
         invoice = client.messages.create(
             model=model,
             max_tokens=2048,
+            max_retries=0,
             response_model=InvoiceExtraction,
             messages=[
                 {"role": "user", "content": EXTRACTION_PROMPT.format(raw_text=raw_text)}
@@ -125,7 +126,6 @@ def extract_with_retry(
         error_log.append(f"attempt 1: {kind}: {exc}")
         return run_fallback(
             raw_client,
-            client,
             model,
             raw_text,
             last_raw=_last_raw_from(exc),

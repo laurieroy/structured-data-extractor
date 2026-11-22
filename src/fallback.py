@@ -46,7 +46,6 @@ def _errors_text(errors: list) -> str:
 
 def run_fallback(
     raw_client,
-    client,
     model,
     raw_text: str,
     *,
@@ -60,7 +59,9 @@ def run_fallback(
     for attempt in range(2, max_retries + 1) if use_reflection else ():
         attempts_made = attempt
         time.sleep(2 ** (attempt - 2))
-        errors_text = _errors_text(last_errors) or error_log[-1]
+        errors_text = _errors_text(last_errors) or (
+            error_log[-1] if error_log else "no previous errors"
+        )
         prompt = REFLECTION_PROMPT.format(
             schema=json.dumps(InvoiceExtraction.model_json_schema()),
             snippet=_context_snippet(raw_text, last_errors),
@@ -95,8 +96,8 @@ def run_fallback(
         except ValueError as exc:
             error_log.append(f"attempt {attempt}: normalization failed: {exc}")
 
-    repaired = repair_json(last_raw)
     try:
+        repaired = repair_json(last_raw)
         data = json.loads(repaired) if isinstance(repaired, str) else repaired
         invoice = InvoiceExtraction(**normalize_invoice_data(data))
         return ExtractionResult(
@@ -105,7 +106,7 @@ def run_fallback(
             error_log=error_log,
             execution_status="REPAIRED_VIA_REFLECTION",
         )
-    except (ValidationError, ValueError, TypeError) as exc:
+    except Exception as exc:
         error_log.append(f"json_repair stage: {exc}")
 
     return dlq_result(raw_text, last_raw, error_log, attempts_used=attempts_made)
@@ -124,13 +125,16 @@ def dlq_result(
 
 
 def _write_dlq(raw_text: str, last_raw: str, error_log: list[str]) -> None:
-    DLQ_PATH.parent.mkdir(parents=True, exist_ok=True)
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "raw_payload": last_raw,
-        "source_excerpt": raw_text[:500],
-        "errors": list(error_log),
-        "failed": True,
-    }
-    with DLQ_PATH.open("a") as fh:
-        fh.write(json.dumps(entry) + "\n")
+    try:
+        DLQ_PATH.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "raw_payload": last_raw,
+            "source_excerpt": raw_text[:500],
+            "errors": list(error_log),
+            "failed": True,
+        }
+        with DLQ_PATH.open("a") as fh:
+            fh.write(json.dumps(entry) + "\n")
+    except OSError as exc:
+        error_log.append(f"DLQ write failed: {exc}")

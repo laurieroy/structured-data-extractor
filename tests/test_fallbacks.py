@@ -56,7 +56,6 @@ def _response(text):
 def _run_fallback(raw_client, error_log=None):
     return run_fallback(
         raw_client,
-        Mock(),
         "test-model",
         "INVOICE\nVendor: Northwind Consulting LLC\nTotal due: $5,184.00",
         last_raw='{"invoice_number": "INV-2024-0847"',
@@ -357,3 +356,59 @@ def test_simulate_failure_routes_to_dlq(monkeypatch, tmp_path):
     clients.assert_not_called()
     entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
     assert entry["failed"] is True
+
+
+def test_empty_error_log_does_not_crash(monkeypatch, tmp_path):
+    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
+    monkeypatch.setattr(
+        "src.fallback.DLQ_PATH", tmp_path / "dlq" / "failed_extractions.jsonl"
+    )
+
+    raw_client = Mock()
+    raw_client.messages.create.return_value = _response(
+        json.dumps(VALID_PAYLOAD)
+    )
+
+    result = _run_fallback(raw_client, error_log=[])
+
+    assert result.execution_status == "REPAIRED_VIA_REFLECTION"
+    assert result.validated_data is not None
+
+
+def test_repair_json_failure_returns_dlq(monkeypatch, tmp_path):
+    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
+    monkeypatch.setattr(
+        "src.fallback.DLQ_PATH", tmp_path / "dlq" / "failed_extractions.jsonl"
+    )
+    monkeypatch.setattr(
+        "src.fallback.repair_json",
+        Mock(side_effect=RuntimeError("repair exploded")),
+    )
+
+    raw_client = Mock()
+    raw_client.messages.create.return_value = _response("not json at all")
+
+    result = _run_fallback(raw_client)
+
+    assert result.execution_status == "DLQ_FAILED"
+    assert result.validated_data is None
+    assert any("repair" in e.lower() for e in result.error_log)
+
+
+def test_dlq_write_failure_still_returns_result(monkeypatch, tmp_path):
+    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory")
+    monkeypatch.setattr(
+        "src.fallback.DLQ_PATH",
+        blocker / "dlq" / "failed_extractions.jsonl",
+    )
+
+    raw_client = Mock()
+    raw_client.messages.create.return_value = _response("not json at all")
+
+    result = _run_fallback(raw_client)
+
+    assert result.execution_status == "DLQ_FAILED"
+    assert result.validated_data is None
+    assert any("DLQ" in e for e in result.error_log)
