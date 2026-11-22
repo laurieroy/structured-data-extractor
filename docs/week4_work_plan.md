@@ -126,13 +126,13 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 - [x] Anything else found (security gaps, hard-coded keys, unbounded retries, no timeouts)
 
 **Human steps**
-- [x ] Verify each finding is real before fixing it
-- [ ] Apply each fix as a separate commit
+- [x] Verify each finding is real before fixing it
+- [x] Apply each fix as a separate commit
 
 **Definition of Done**
-- [ ] `ai_prompt_log.md` has prompt, initial output, audit, and fixes
-- [ ] 2+ fixes committed separately
-- [ ] Tests still pass
+- [x] `ai_prompt_log.md` has prompt, initial output, audit, and fixes
+- [x] 2+ fixes committed separately
+- [x] Tests still pass
 
 ---
 

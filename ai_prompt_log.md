@@ -258,7 +258,28 @@ findings, say so explicitly — do not manufacture findings.
 - **Clean:** no Pydantic v1 API usage, no hard-coded secrets, bounded
   retries with exponential backoff, `attempts_used` internally consistent
 
+### Summary
+
+| # | Finding | Severity | Fixed in |
+|---|---------|----------|----------|
+| 1 | Unguarded API call in reflection loop → crash on API errors | blocker | `2c8dda2` |
+| 2 | Normalization dead on primary path, absent on fallback/repair paths | high | `0d72718` |
+| 3 | `last_raw` = `str(exc)`; reflection/DLQ lack real malformed JSON | high | `eee7903` |
+| 4 | `except Exception` funnels auth/network errors into repair loop | high | `9211635` |
+| 5 | Reflection loop uses raw client; fenced JSON fails `json.loads` | medium | open |
+| 6 | Snippet heuristic searches schema names → degenerates to `raw_text[:800]` | low | open |
+| 7 | No timeout on API calls | low | open |
+| 8 | `repair_json` call outside try | low | open |
+| 9 | Unguarded DLQ write | low | open |
+| 10 | `error_log[-1]` IndexError on empty log | low | open |
+| 11 | `client` parameter unused in `run_fallback` | low | open |
+| 12 | instructor `max_retries` unspecified → possible `attempts_used` undercount | low | open |
+| 13 | `json_repair` success labeled `REPAIRED_VIA_REFLECTION` | low | open |
+| 14 | Uniform backoff for validation and transport errors | low | open |
+| — | Pydantic v1/v2 collisions, hard-coded secrets, unbounded retries | — | none found |
+
 ### Fixes made
 
-None — audit was review-only. Fixes applied as separate commits on
-`m3-audit`, one per finding, test-first (see commit history).
+Findings 1–4 fixed as separate commits on `m3-audit`, test-first
+(regression tests in `tests/test_fallbacks.py`). Findings 5–14 left open —
+documented for M4 or accepted as-is.
