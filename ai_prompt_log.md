@@ -172,3 +172,93 @@ LLC, 3 line items, USD). `uv run pytest -v`: 4 passed.
 ### Fixes made
 
 None — baseline committed untouched; fixes are M3 scope.
+
+## M3 — Staff-engineer audit of M2 draft (review only)
+
+- **Model used:** devin/swe-2-high (self-reported)
+- **Date:** 2026-11-21
+
+### Prompt (verbatim)
+
+```text
+You are a senior staff engineer reviewing an AI-generated first draft of a
+fault-tolerant LLM extraction pipeline. This is a REVIEW-ONLY task: find
+and explain problems — do not edit, rewrite, or "fix" any code.
+
+Review these files:
+- src/extractor.py  (ingestion + Stage 1 constrained decoding)
+- src/fallback.py   (Stage 2 reflection loop + Stage 3 json_repair + DLQ)
+- src/schemas.py and src/normalize.py are context only — already tested;
+  flag misuse of them by the two files above, not the files themselves.
+
+Context: commercial-invoice extraction; Anthropic Claude via `instructor`.
+ExtractionResult contract: validated_data / attempts_used / error_log /
+execution_status ("SUCCESS" | "REPAIRED_VIA_REFLECTION" | "DLQ_FAILED").
+
+Check for these four anti-patterns, in order:
+1. Pydantic v1/v2 collisions — @validator instead of
+   @field_validator/@model_validator; .dict() instead of .model_dump()
+2. Context stuffing / token bloat — is the whole document re-sent on
+   every retry instead of the relevant snippet plus targeted errors?
+3. Silent error swallowing — does any failure path return a half-empty or
+   all-None object, swallow exceptions, or hide errors instead of
+   DLQ_FAILED with validated_data=None and a populated error_log?
+4. Date/type coercion fragility — can messy values ("$1,249.50",
+   "12th of Oct, 2024") reach Pydantic unparsed? Are parse_money /
+   parse_date actually exercised on the LLM output path?
+
+Then one more pass for anything else: hard-coded keys or secrets,
+unbounded retries or missing backoff, missing timeouts on API calls,
+over-broad except clauses that misclassify errors, dead code / unused
+parameters, incorrect attempts_used accounting.
+
+For EVERY finding report:
+- file and line(s), quoting the offending code
+- which anti-pattern it is and why it is a real problem (not style)
+- severity: blocker / high / low
+- a one-line fix direction (describe it; do not write the code)
+
+End with a summary table ordered by severity. If a category has no real
+findings, say so explicitly — do not manufacture findings.
+```
+
+### What was generated
+
+- Structured review of `src/extractor.py` + `src/fallback.py`: 15 findings
+  with file/line, offending code, severity, and a one-line fix direction,
+  ending in a severity-ordered summary table
+
+### Bugs / issues found
+
+- **Blocker:** API call inside the reflection loop (`src/fallback.py:66-71`)
+  is unguarded — any `APIError` propagates out and crashes the pipeline on
+  exactly the failures it exists to tolerate
+- **High:** `parse_money`/`parse_date` are dead code on the primary path
+  (instructor returns an already-validated model, so normalization only
+  ever sees clean values — `src/extractor.py:83-90`) and are never applied
+  on the fallback/json_repair paths (`src/fallback.py:73,89`), so messy
+  `"$1,249.50"`/`"12th of Oct, 2024"` values hit Pydantic unparsed there
+- **High:** `getattr(exc, "raw_output", None)` (`src/extractor.py:104`) is a
+  hallucinated attribute — `last_raw` is always `str(exc)`, so the
+  reflection prompt's "Previous malformed JSON" and the DLQ `raw_payload`
+  contain an exception message, not the model's output
+- **High:** `except Exception` (`src/extractor.py:97`) funnels
+  auth/network/rate-limit errors into a validation-repair loop that
+  re-prompts as if the model emitted bad JSON
+- **Medium:** reflection loop uses the raw client (`src/fallback.py:66-73`)
+  and `json.loads` on raw text — markdown-fenced replies are guaranteed
+  decode failures; the instructor client is passed in but unused
+- **Low:** `_context_snippet` searches source text for schema field names
+  that never appear verbatim → degenerates to `raw_text[:800]`; no API
+  timeouts; `repair_json` call outside its try; unguarded DLQ write;
+  `error_log[-1]` IndexError on empty log; unused `client` param;
+  unverified instructor `max_retries` default (possible `attempts_used`
+  undercount); `json_repair` success labeled `REPAIRED_VIA_REFLECTION`;
+  uniform backoff applied to both validation and transport errors
+- **Clean:** no Pydantic v1 API usage, no hard-coded secrets, bounded
+  retries with exponential backoff, `attempts_used` internally consistent
+
+### Fixes made
+
+None — audit was review-only; fixes are M4 scope (to be applied on
+`m4-resilience`).

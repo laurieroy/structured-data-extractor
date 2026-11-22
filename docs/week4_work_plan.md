@@ -119,14 +119,14 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 **Agent task:** use a **fresh session** with a reviewer prompt: *"Review this code for the four anti-patterns below. Find and explain problems; do not rewrite."*
 
 **Audit checklist (log finding, evidence, fix, before/after for each)**
-- [ ] Pydantic v1/v2 collisions (`@validator`, `.dict()`)
-- [ ] Context stuffing and token bloat in the retry loop
-- [ ] Silent swallowing of errors / half-empty objects returned
-- [ ] Date and type coercion fragility
-- [ ] Anything else found (security gaps, hard-coded keys, unbounded retries, no timeouts)
+- [x] Pydantic v1/v2 collisions (`@validator`, `.dict()`)
+- [x] Context stuffing and token bloat in the retry loop
+- [x] Silent swallowing of errors / half-empty objects returned
+- [x] Date and type coercion fragility
+- [x] Anything else found (security gaps, hard-coded keys, unbounded retries, no timeouts)
 
 **Human steps**
-- [ ] Verify each finding is real before fixing it
+- [x ] Verify each finding is real before fixing it
 - [ ] Apply each fix as a separate commit
 
 **Definition of Done**
