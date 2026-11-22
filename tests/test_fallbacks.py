@@ -8,25 +8,7 @@ from anthropic import APIConnectionError, AuthenticationError
 
 from src.extractor import extract_with_retry
 from src.fallback import run_fallback
-
-VALID_PAYLOAD = {
-    "invoice_number": "INV-2024-0847",
-    "vendor_name": "Northwind Consulting LLC",
-    "invoice_date": "2024-10-12",
-    "line_items": [
-        {
-            "description": "Cloud hosting & maintenance",
-            "quantity": 1,
-            "unit_price": 4800.00,
-            "line_total": 4800.00,
-        },
-    ],
-    "subtotal": 4800.00,
-    "tax_amount": 384.00,
-    "total_amount": 5184.00,
-    "currency": "USD",
-}
-
+from tests.test_extraction import GOLDEN_PAYLOAD
 
 MESSY_PAYLOAD = {
     "invoice_number": "INV-2024-0847",
@@ -64,11 +46,41 @@ def _run_fallback(raw_client, error_log=None):
     )
 
 
-def test_api_error_in_retry_loop_returns_dlq_failed(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
-    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
+def _capture_run_fallback(monkeypatch):
+    captured = {}
 
+    def spy(*args, **kwargs):
+        captured.update(kwargs)
+        return "sentinel"
+
+    monkeypatch.setattr("src.extractor.run_fallback", spy)
+    return captured
+
+
+def _request():
+    return httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+
+
+def _failing_instructor_client(last_raw=None):
+    exc = RuntimeError("stage 1 validation failed")
+    if last_raw is not None:
+        completion = Mock()
+        completion.model_dump_json.return_value = last_raw
+        exc.last_completion = completion
+    client = Mock()
+    client.messages.create.side_effect = exc
+    return client
+
+
+def _clients_pair(instructor_client, raw_client):
+    return (instructor_client, raw_client, "test-model")
+
+
+def _dlq_entry(dlq_file):
+    return json.loads(dlq_file.read_text().strip().splitlines()[-1])
+
+
+def test_api_error_in_retry_loop_returns_dlq_failed(dlq_file):
     raw_client = Mock()
     raw_client.messages.create.side_effect = RuntimeError("connection lost")
 
@@ -77,20 +89,14 @@ def test_api_error_in_retry_loop_returns_dlq_failed(monkeypatch, tmp_path):
     assert result.execution_status == "DLQ_FAILED"
     assert result.validated_data is None
     assert any("connection lost" in e for e in result.error_log)
-    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
-    assert entry["failed"] is True
+    assert _dlq_entry(dlq_file)["failed"] is True
 
 
-def test_transient_api_error_then_success_repairs(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    monkeypatch.setattr(
-        "src.fallback.DLQ_PATH", tmp_path / "dlq" / "failed_extractions.jsonl"
-    )
-
+def test_transient_api_error_then_success_repairs():
     raw_client = Mock()
     raw_client.messages.create.side_effect = [
         RuntimeError("connection lost"),
-        _response(json.dumps(VALID_PAYLOAD)),
+        _response(json.dumps(GOLDEN_PAYLOAD)),
     ]
 
     result = _run_fallback(raw_client)
@@ -102,12 +108,7 @@ def test_transient_api_error_then_success_repairs(monkeypatch, tmp_path):
     assert any("connection lost" in e for e in result.error_log)
 
 
-def test_reflection_normalizes_messy_values(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    monkeypatch.setattr(
-        "src.fallback.DLQ_PATH", tmp_path / "dlq" / "failed_extractions.jsonl"
-    )
-
+def test_reflection_normalizes_messy_values():
     raw_client = Mock()
     raw_client.messages.create.return_value = _response(
         json.dumps(MESSY_PAYLOAD)
@@ -125,12 +126,7 @@ def test_reflection_normalizes_messy_values(monkeypatch, tmp_path):
     assert result.attempts_used == 2
 
 
-def test_json_repair_normalizes_messy_values(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    monkeypatch.setattr(
-        "src.fallback.DLQ_PATH", tmp_path / "dlq" / "failed_extractions.jsonl"
-    )
-
+def test_json_repair_normalizes_messy_values():
     fenced = "```json\n" + json.dumps(MESSY_PAYLOAD) + "\n```"
     raw_client = Mock()
     raw_client.messages.create.return_value = _response(fenced)
@@ -141,17 +137,6 @@ def test_json_repair_normalizes_messy_values(monkeypatch, tmp_path):
     assert result.validated_data is not None
     assert result.validated_data.invoice_date == date(2024, 10, 12)
     assert result.validated_data.total_amount == pytest.approx(13494.60)
-
-
-def _capture_run_fallback(monkeypatch):
-    captured = {}
-
-    def spy(*args, **kwargs):
-        captured.update(kwargs)
-        return "sentinel"
-
-    monkeypatch.setattr("src.extractor.run_fallback", spy)
-    return captured
 
 
 def test_stage1_failure_passes_raw_completion_to_fallback(monkeypatch):
@@ -186,14 +171,7 @@ def test_stage1_failure_uses_str_exc_when_no_completion(monkeypatch):
     assert captured["last_raw"] == "validation failed"
 
 
-def _request():
-    return httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
-
-
-def test_stage1_auth_error_goes_straight_to_dlq(monkeypatch, tmp_path):
-    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
-    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
-
+def test_stage1_auth_error_goes_straight_to_dlq(monkeypatch, dlq_file):
     client = Mock()
     client.messages.create.side_effect = AuthenticationError(
         message="invalid x-api-key",
@@ -212,8 +190,7 @@ def test_stage1_auth_error_goes_straight_to_dlq(monkeypatch, tmp_path):
     assert result.attempts_used == 1
     assert captured == {}
     assert any("non-retryable" in e for e in result.error_log)
-    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
-    assert entry["failed"] is True
+    assert _dlq_entry(dlq_file)["failed"] is True
 
 
 def test_stage1_transient_api_error_enters_fallback(monkeypatch):
@@ -231,30 +208,13 @@ def test_stage1_transient_api_error_enters_fallback(monkeypatch):
     assert captured["error_log"][-1].startswith("attempt 1: API error")
 
 
-def _failing_instructor_client(last_raw=None):
-    exc = RuntimeError("stage 1 validation failed")
-    if last_raw is not None:
-        completion = Mock()
-        completion.model_dump_json.return_value = last_raw
-        exc.last_completion = completion
-    client = Mock()
-    client.messages.create.side_effect = exc
-    return client
-
-
-def _clients_pair(instructor_client, raw_client):
-    return (instructor_client, raw_client, "test-model")
-
-
 def test_reflection_success_self_heals_on_attempt_2(monkeypatch):
     """Test 4: malformed stage-1 output self-heals on attempt 2."""
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-
-    malformed = json.dumps({**VALID_PAYLOAD, "currency": "YEN"})
+    malformed = json.dumps({**GOLDEN_PAYLOAD, "currency": "YEN"})
     instructor_client = _failing_instructor_client(last_raw=malformed)
     raw_client = Mock()
     raw_client.messages.create.return_value = _response(
-        json.dumps(VALID_PAYLOAD)
+        json.dumps(GOLDEN_PAYLOAD)
     )
     monkeypatch.setattr(
         "src.extractor._clients",
@@ -270,12 +230,8 @@ def test_reflection_success_self_heals_on_attempt_2(monkeypatch):
     raw_client.messages.create.assert_called_once()
 
 
-def test_dlq_routing_after_max_retries(monkeypatch, tmp_path):
+def test_dlq_routing_after_max_retries(monkeypatch, dlq_file):
     """Test 5: nonsense input -> DLQ_FAILED after max_retries, no crash."""
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
-    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
-
     instructor_client = _failing_instructor_client()
     raw_client = Mock()
     raw_client.messages.create.return_value = _response("not json at all")
@@ -291,16 +247,12 @@ def test_dlq_routing_after_max_retries(monkeypatch, tmp_path):
     assert result.attempts_used == 3
     assert result.error_log
     assert raw_client.messages.create.call_count == 2
-    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
+    entry = _dlq_entry(dlq_file)
     assert entry["failed"] is True
     assert entry["errors"]
 
 
-def test_reflection_disabled_skips_retry_loop(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
-    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
-
+def test_reflection_disabled_skips_retry_loop(monkeypatch, dlq_file):
     instructor_client = _failing_instructor_client()
     raw_client = Mock()
     monkeypatch.setattr(
@@ -315,14 +267,11 @@ def test_reflection_disabled_skips_retry_loop(monkeypatch, tmp_path):
     assert result.execution_status == "DLQ_FAILED"
     assert result.attempts_used == 1
     raw_client.messages.create.assert_not_called()
-    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
-    assert entry["failed"] is True
+    assert _dlq_entry(dlq_file)["failed"] is True
 
 
 def test_reflection_disabled_still_uses_json_repair(monkeypatch):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-
-    fenced = "```json\n" + json.dumps(VALID_PAYLOAD) + "\n```"
+    fenced = "```json\n" + json.dumps(GOLDEN_PAYLOAD) + "\n```"
     instructor_client = _failing_instructor_client(last_raw=fenced)
     raw_client = Mock()
     monkeypatch.setattr(
@@ -340,10 +289,7 @@ def test_reflection_disabled_still_uses_json_repair(monkeypatch):
     raw_client.messages.create.assert_not_called()
 
 
-def test_simulate_failure_routes_to_dlq(monkeypatch, tmp_path):
-    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
-    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
-
+def test_simulate_failure_routes_to_dlq(monkeypatch, dlq_file):
     clients = Mock()
     monkeypatch.setattr("src.extractor._clients", clients)
 
@@ -354,19 +300,13 @@ def test_simulate_failure_routes_to_dlq(monkeypatch, tmp_path):
     assert result.attempts_used == 0
     assert result.error_log
     clients.assert_not_called()
-    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
-    assert entry["failed"] is True
+    assert _dlq_entry(dlq_file)["failed"] is True
 
 
-def test_empty_error_log_does_not_crash(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    monkeypatch.setattr(
-        "src.fallback.DLQ_PATH", tmp_path / "dlq" / "failed_extractions.jsonl"
-    )
-
+def test_empty_error_log_does_not_crash():
     raw_client = Mock()
     raw_client.messages.create.return_value = _response(
-        json.dumps(VALID_PAYLOAD)
+        json.dumps(GOLDEN_PAYLOAD)
     )
 
     result = _run_fallback(raw_client, error_log=[])
@@ -375,11 +315,7 @@ def test_empty_error_log_does_not_crash(monkeypatch, tmp_path):
     assert result.validated_data is not None
 
 
-def test_repair_json_failure_returns_dlq(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
-    monkeypatch.setattr(
-        "src.fallback.DLQ_PATH", tmp_path / "dlq" / "failed_extractions.jsonl"
-    )
+def test_repair_json_failure_returns_dlq(monkeypatch, dlq_file):
     monkeypatch.setattr(
         "src.fallback.repair_json",
         Mock(side_effect=RuntimeError("repair exploded")),
@@ -396,7 +332,6 @@ def test_repair_json_failure_returns_dlq(monkeypatch, tmp_path):
 
 
 def test_dlq_write_failure_still_returns_result(monkeypatch, tmp_path):
-    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
     blocker = tmp_path / "blocker"
     blocker.write_text("not a directory")
     monkeypatch.setattr(
