@@ -283,3 +283,44 @@ findings, say so explicitly — do not manufacture findings.
 Findings 1–4 fixed as separate commits on `m3-audit`, test-first
 (regression tests in `tests/test_fallbacks.py`). Findings 5–14 left open —
 documented for M4 or accepted as-is.
+
+## M4 — Resilience: Tests 4–5 + UI hooks
+
+- **Model used:** devin/swe-2-high (self-reported)
+- **Date:** 2026-11-21
+
+### Prompt (verbatim)
+
+```text
+(continued session after M3; incremental instructions)
+- "Fix #2, writing tests first" — normalize messy values on fallback paths
+- "Fix #3" / "go" — pass real model output to fallback; classify
+  stage-1 errors (non-retryable API -> DLQ, transient -> retry loop)
+- "continue" (M4) — write assignment Tests 4-5, add reflection on/off
+  switch and simulated-failure hook for the UI, tests-first
+```
+
+### What was generated
+
+- `tests/test_fallbacks.py` — Tests 4-5 per assignment §4 Step 5
+  (`test_reflection_success_self_heals_on_attempt_2`,
+  `test_dlq_routing_after_max_retries`), plus regression tests for M3
+  fixes and the new hooks (13 tests total, all mocked, no API key)
+- `extract_with_retry(..., use_reflection=True, simulate_failure=False)`
+  — reflection toggle skips the Stage-2 loop (still runs Stage-3
+  `json_repair`); `simulate_failure` routes straight to the DLQ with
+  `attempts_used=0`
+- `run_fallback(..., use_reflection=True)` + `attempts_made` tracking so
+  DLQ/repair results report real attempt counts
+- `dlq_result()` helper in `fallback.py` (shared DLQ-write + result path)
+
+### Bugs / issues found
+
+- `httpx` not importable in tests — environment uses the `httpx2`
+  package (anthropic 2.12 imports `httpx2` directly); fixed by importing
+  `httpx2` in `test_fallbacks.py` (same commit as fix #4)
+
+### Fixes made
+
+- All changes test-first: each new behavior got failing tests before
+  implementation; `uv run pytest -v` → 13 passed

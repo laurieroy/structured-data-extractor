@@ -53,9 +53,12 @@ def run_fallback(
     last_raw: str,
     error_log: list[str],
     max_retries: int,
+    use_reflection: bool = True,
 ) -> ExtractionResult:
     last_errors: list = []
-    for attempt in range(2, max_retries + 1):
+    attempts_made = 1
+    for attempt in range(2, max_retries + 1) if use_reflection else ():
+        attempts_made = attempt
         time.sleep(2 ** (attempt - 2))
         errors_text = _errors_text(last_errors) or error_log[-1]
         prompt = REFLECTION_PROMPT.format(
@@ -98,14 +101,14 @@ def run_fallback(
         invoice = InvoiceExtraction(**normalize_invoice_data(data))
         return ExtractionResult(
             validated_data=invoice,
-            attempts_used=max_retries,
+            attempts_used=attempts_made,
             error_log=error_log,
             execution_status="REPAIRED_VIA_REFLECTION",
         )
     except (ValidationError, ValueError, TypeError) as exc:
         error_log.append(f"json_repair stage: {exc}")
 
-    return dlq_result(raw_text, last_raw, error_log, attempts_used=max_retries)
+    return dlq_result(raw_text, last_raw, error_log, attempts_used=attempts_made)
 
 
 def dlq_result(

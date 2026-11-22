@@ -230,3 +230,130 @@ def test_stage1_transient_api_error_enters_fallback(monkeypatch):
     extract_with_retry("INVOICE\nTotal due: $5,184.00")
 
     assert captured["error_log"][-1].startswith("attempt 1: API error")
+
+
+def _failing_instructor_client(last_raw=None):
+    exc = RuntimeError("stage 1 validation failed")
+    if last_raw is not None:
+        completion = Mock()
+        completion.model_dump_json.return_value = last_raw
+        exc.last_completion = completion
+    client = Mock()
+    client.messages.create.side_effect = exc
+    return client
+
+
+def _clients_pair(instructor_client, raw_client):
+    return (instructor_client, raw_client, "test-model")
+
+
+def test_reflection_success_self_heals_on_attempt_2(monkeypatch):
+    """Test 4: malformed stage-1 output self-heals on attempt 2."""
+    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
+
+    malformed = json.dumps({**VALID_PAYLOAD, "currency": "YEN"})
+    instructor_client = _failing_instructor_client(last_raw=malformed)
+    raw_client = Mock()
+    raw_client.messages.create.return_value = _response(
+        json.dumps(VALID_PAYLOAD)
+    )
+    monkeypatch.setattr(
+        "src.extractor._clients",
+        lambda: _clients_pair(instructor_client, raw_client),
+    )
+
+    result = extract_with_retry("INVOICE\nTotal due: $5,184.00")
+
+    assert result.execution_status == "REPAIRED_VIA_REFLECTION"
+    assert result.attempts_used == 2
+    assert result.validated_data is not None
+    assert result.validated_data.currency == "USD"
+    raw_client.messages.create.assert_called_once()
+
+
+def test_dlq_routing_after_max_retries(monkeypatch, tmp_path):
+    """Test 5: nonsense input -> DLQ_FAILED after max_retries, no crash."""
+    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
+    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
+    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
+
+    instructor_client = _failing_instructor_client()
+    raw_client = Mock()
+    raw_client.messages.create.return_value = _response("not json at all")
+    monkeypatch.setattr(
+        "src.extractor._clients",
+        lambda: _clients_pair(instructor_client, raw_client),
+    )
+
+    result = extract_with_retry("nonsense gibberish not an invoice")
+
+    assert result.execution_status == "DLQ_FAILED"
+    assert result.validated_data is None
+    assert result.attempts_used == 3
+    assert result.error_log
+    assert raw_client.messages.create.call_count == 2
+    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
+    assert entry["failed"] is True
+    assert entry["errors"]
+
+
+def test_reflection_disabled_skips_retry_loop(monkeypatch, tmp_path):
+    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
+    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
+    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
+
+    instructor_client = _failing_instructor_client()
+    raw_client = Mock()
+    monkeypatch.setattr(
+        "src.extractor._clients",
+        lambda: _clients_pair(instructor_client, raw_client),
+    )
+
+    result = extract_with_retry(
+        "nonsense gibberish not an invoice", use_reflection=False
+    )
+
+    assert result.execution_status == "DLQ_FAILED"
+    assert result.attempts_used == 1
+    raw_client.messages.create.assert_not_called()
+    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
+    assert entry["failed"] is True
+
+
+def test_reflection_disabled_still_uses_json_repair(monkeypatch):
+    monkeypatch.setattr("src.fallback.time.sleep", lambda *_: None)
+
+    fenced = "```json\n" + json.dumps(VALID_PAYLOAD) + "\n```"
+    instructor_client = _failing_instructor_client(last_raw=fenced)
+    raw_client = Mock()
+    monkeypatch.setattr(
+        "src.extractor._clients",
+        lambda: _clients_pair(instructor_client, raw_client),
+    )
+
+    result = extract_with_retry(
+        "INVOICE\nTotal due: $5,184.00", use_reflection=False
+    )
+
+    assert result.execution_status == "REPAIRED_VIA_REFLECTION"
+    assert result.attempts_used == 1
+    assert result.validated_data is not None
+    raw_client.messages.create.assert_not_called()
+
+
+def test_simulate_failure_routes_to_dlq(monkeypatch, tmp_path):
+    dlq_file = tmp_path / "dlq" / "failed_extractions.jsonl"
+    monkeypatch.setattr("src.fallback.DLQ_PATH", dlq_file)
+
+    clients = Mock()
+    monkeypatch.setattr("src.extractor._clients", clients)
+
+    result = extract_with_retry("anything", simulate_failure=True)
+
+    assert result.execution_status == "DLQ_FAILED"
+    assert result.validated_data is None
+    assert result.attempts_used == 0
+    assert result.error_log
+    clients.assert_not_called()
+    entry = json.loads(dlq_file.read_text().strip().splitlines()[-1])
+    assert entry["failed"] is True

@@ -82,7 +82,19 @@ def _last_raw_from(exc: Exception) -> str:
     return dump() if dump else str(completion)
 
 
-def extract_with_retry(raw_text: str, max_retries: int = 3) -> ExtractionResult:
+def extract_with_retry(
+    raw_text: str,
+    max_retries: int = 3,
+    use_reflection: bool = True,
+    simulate_failure: bool = False,
+) -> ExtractionResult:
+    if simulate_failure:
+        return dlq_result(
+            raw_text,
+            "simulated-failure",
+            ["simulated edge-case failure"],
+            attempts_used=0,
+        )
     client, raw_client, model = _clients()
     error_log: list[str] = []
     try:
@@ -119,6 +131,7 @@ def extract_with_retry(raw_text: str, max_retries: int = 3) -> ExtractionResult:
             last_raw=_last_raw_from(exc),
             error_log=error_log,
             max_retries=max_retries,
+            use_reflection=use_reflection,
         )
 
 

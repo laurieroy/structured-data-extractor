@@ -143,24 +143,24 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 **Agent task:** write `tests/test_fallbacks.py` (Tests 4-5) with a mocked LLM client first, then implement.
 
 **Build checklist**
-- [ ] `ExtractionResult`: `validated_data`, `attempts_used`, `error_log`, `execution_status`
-- [ ] Stage 1: constrained structured decoding
-- [ ] Stage 2: reflection loop re-prompts with context snippet + previous JSON + `err['loc']`/`err['msg']`
-- [ ] Bounded retries with backoff
-- [ ] Stage 3: `json_repair` attempt, then validate the repaired output (repair does not bypass validation)
-- [ ] DLQ writer (JSONL file with timestamp, payload, errors, failure flag)
-- [ ] Reflection on/off switch (needed by the UI)
-- [ ] Simulated-failure hook (needed by the UI button)
+- [x] `ExtractionResult`: `validated_data`, `attempts_used`, `error_log`, `execution_status`
+- [x] Stage 1: constrained structured decoding
+- [x] Stage 2: reflection loop re-prompts with context snippet + previous JSON + `err['loc']`/`err['msg']`
+- [x] Bounded retries with backoff
+- [x] Stage 3: `json_repair` attempt, then validate the repaired output (repair does not bypass validation)
+- [x] DLQ writer (JSONL file with timestamp, payload, errors, failure flag)
+- [x] Reflection on/off switch (needed by the UI)
+- [x] Simulated-failure hook (needed by the UI button)
 
 **Tests**
-- [ ] Test 4: malformed mock response self-heals on Attempt 2 (`REPAIRED_VIA_REFLECTION`)
-- [ ] Test 5: nonsense input → `DLQ_FAILED` after 3 retries, DLQ entry written, no exception
+- [x] Test 4: malformed mock response self-heals on Attempt 2 (`REPAIRED_VIA_REFLECTION`)
+- [x] Test 5: nonsense input → `DLQ_FAILED` after 3 retries, DLQ entry written, no exception
 
 **Definition of Done**
-- [ ] All 5+ tests pass via `pytest -v`
-- [ ] Failure path returns `validated_data=None`, never a hollow object
-- [ ] Retry prompts verified not to contain the full document
-- [ ] Committed
+- [x] All 5+ tests pass via `pytest -v`
+- [x] Failure path returns `validated_data=None`, never a hollow object
+- [x] Retry prompts verified not to contain the full document
+- [x] Committed
 
 ---
 
