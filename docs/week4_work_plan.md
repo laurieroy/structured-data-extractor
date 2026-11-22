@@ -171,13 +171,13 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 **Agent task:** build `src/app.py` (Streamlit is the fastest option).
 
 **Feature checklist**
-- [ ] Upload PDF or paste HTML/text
-- [ ] Toggle: reflection loop on/off
-- [ ] Side-by-side: raw document vs. validated JSON
-- [ ] Reconciliation badge (match / mismatch with the difference shown)
-- [ ] Audit log panel: attempts, raw validation errors, exact corrective prompts
-- [ ] "Simulate Edge Case Failure" button routing to the DLQ
-- [ ] Clear error display (no stack traces shown to the user)
+- [x] Upload PDF or paste HTML/text
+- [x] Toggle: reflection loop on/off
+- [x] Side-by-side: raw document vs. validated JSON
+- [x] Reconciliation badge (match / mismatch with the difference shown)
+- [x] Audit log panel: attempts, raw validation errors, exact corrective prompts
+- [x] "Simulate Edge Case Failure" button routing to the DLQ
+- [x] Clear error display (no stack traces shown to the user)
 
 **Definition of Done**
 - [ ] The full demo script (below) runs from the UI with no terminal use
