@@ -11,11 +11,17 @@ upload, side-by-side output, and audit logging.
 > `docs/week4_work_plan.md` (spec in `docs/week4_assignment.md`).
 > M0–M5 are done: the extraction pipeline, reflection/repair fallbacks,
 > DLQ, Streamlit UI, and test suite (23 tests) are implemented.
-> Remaining: M6 packaging/deployment, M7 submission polish.
+> M6 adds local Docker packaging (cloud deploy dropped).
+> Remaining: M7 submission polish.
 
 ## Demo
 
-- **Live app:** https://your-app.streamlit.app (TBD)
+Runs locally via Docker — no hosted deployment (see
+[Security hardening](#security-hardening-todo)). With `.env` filled in:
+
+```bash
+docker compose up --build   # then open http://localhost:8501
+```
 
 
 ![App screenshot with clean extraction](docs/screenshots/invoice_extraction_success.png "Streamlit UI — invoice extracted on attempt 1")
@@ -94,13 +100,41 @@ e.g. `claude-sonnet-5-5`.
 ```bash
 uv run pytest -v                    # run the test suite
 uv run streamlit run src/app.py     # start the web UI
+docker compose up --build           # run the app in a container (port 8501)
 ```
+
+The container installs locked deps via `uv sync --frozen --no-dev` and reads
+`ANTHROPIC_API_KEY` / `EXTRACTOR_MODEL` from `.env` through `env_file` — the
+key is passed at runtime, never baked into the image. `./dlq` is bind-mounted
+so the dead-letter queue persists on the host.
+
+## Security hardening (TODO)
+
+The app runs locally / in Docker for the course demo — deliberately no public
+deployment. Before exposing it beyond localhost:
+
+- [ ] **Authentication** — `st.login`/`st.user` (OIDC) or a host-level gate;
+      a `st.text_input(type="password")` box is not authentication
+- [ ] **Rate limiting / spend cap** — every extraction spends the operator's
+      `ANTHROPIC_API_KEY`; no auth + no limit means unbounded cost
+- [ ] **Upload caps** — set `server.maxUploadSize` and keep the file-type
+      allowlist tight (uploads are untrusted input to `pypdf`/`bs4`)
+- [ ] **Keep `unsafe_allow_html`/`st.html` off extracted content** — XSS risk
+- [ ] **CSRF/CORS flags** — keep `server.enableXsrfProtection` and
+      `server.enableCORS` at safe defaults if the app is ever proxied
+- [ ] **Durable DLQ** — `dlq/*.jsonl` writes to local disk (ephemeral in
+      containers without the bind mount); move to durable storage if deployed
+- [ ] **Session-state hygiene** — keep uploaded docs/extractions out of
+      module-level globals so users can't see each other's data
 
 ## Project structure
 
 ```
 structured-data-extractor/
 ├── pyproject.toml
+├── Dockerfile              # uv-based image, deps only (project not packaged)
+├── docker-compose.yml      # port 8501, .env via env_file, ./dlq bind mount
+├── .dockerignore
 ├── .python-version         # Python 3.11 pin
 ├── .env.example            # placeholder env vars — copy to .env and fill in
 ├── .gitignore
