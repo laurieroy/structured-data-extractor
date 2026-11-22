@@ -1,8 +1,10 @@
 from datetime import date
+from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
 
+from src.extractor import extract_with_retry
 from src.normalize import parse_date, parse_money
 from src.schemas import InvoiceExtraction
 
@@ -56,6 +58,27 @@ def test_golden_payload_validates():
         assert item.quantity > 0
         assert item.unit_price > 0
         assert item.line_total > 0
+
+
+def test_golden_document_succeeds_on_attempt_1(monkeypatch):
+    """Test 1: well-formed document -> SUCCESS, attempt 1, zero errors."""
+    instructor_client = Mock()
+    instructor_client.messages.create.return_value = InvoiceExtraction(
+        **GOLDEN_PAYLOAD
+    )
+    monkeypatch.setattr(
+        "src.extractor._clients",
+        lambda: (instructor_client, Mock(), "test-model"),
+    )
+
+    result = extract_with_retry("INVOICE\nVendor: Northwind Consulting LLC")
+
+    assert result.execution_status == "SUCCESS"
+    assert result.attempts_used == 1
+    assert result.error_log == []
+    assert result.validated_data is not None
+    assert result.validated_data.invoice_number == "INV-2024-0847"
+    instructor_client.messages.create.assert_called_once()
 
 
 def test_schema_rejects_bad_constraints():

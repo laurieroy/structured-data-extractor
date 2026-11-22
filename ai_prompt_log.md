@@ -325,3 +325,107 @@ as-is or deferred.
 
 - All changes test-first: each new behavior got failing tests before
   implementation; `uv run pytest -v` → 13 passed
+
+## M5 — Web UI (Streamlit)
+
+- **Model used:** devin/swe-2-high (self-reported)
+- **Date:** 2026-11-21
+
+### Prompt (verbatim)
+
+```text
+Remember to check off the work plan and update prompt log as needed.
+You are a senior Python engineer. Write `src/app.py` — a Streamlit UI over an
+existing invoice-extraction pipeline. Python 3.11, Pydantic v2 only
+(`.model_dump()`, never `.dict()`). Plain Streamlit, no new dependencies.
+
+Existing API — import it, do not reimplement:
+
+    # src/extractor.py
+    def extract_text(source) -> str:
+        """bytes -> PDF text; str/Path -> pdf/html/text file or raw string"""
+
+    def extract_with_retry(
+        raw_text: str,
+        max_retries: int = 3,
+        use_reflection: bool = True,
+        simulate_failure: bool = False,
+    ) -> ExtractionResult
+
+    # src/schemas.py
+    class ExtractionResult(BaseModel):
+        validated_data: Optional[InvoiceExtraction]
+        attempts_used: int
+        error_log: list[str]
+        execution_status: Literal[
+            "SUCCESS", "REPAIRED_VIA_REFLECTION", "DLQ_FAILED"]
+
+    # src/fallback.py
+    DLQ_PATH = Path("dlq/failed_extractions.jsonl")  # one JSON object per line
+
+Required features:
+
+1. Input: `st.file_uploader` for PDF (pass uploaded bytes to `extract_text`)
+   and `st.text_area` for pasted HTML/text, plus an "Extract" button.
+2. "Reflection self-correction loop" toggle -> `use_reflection`.
+3. Side-by-side: left = extracted raw text; right = validated JSON via
+   `st.json(result.validated_data.model_dump(mode="json"))`. On failure show
+   an error state, not empty JSON.
+4. Status badge for `execution_status`, plus a reconciliation badge that
+   recomputes `sum(line_total)` vs `subtotal` and `subtotal + tax_amount` vs
+   `total_amount` and shows match/mismatch with the numeric difference.
+5. Audit-log panel: `attempts_used`, every `error_log` entry, and the exact
+   corrective prompt sent on each reflection attempt.
+6. "Simulate Edge Case Failure" button -> `extract_with_retry(...,
+   simulate_failure=True)`; on `DLQ_FAILED` also show the last line of
+   `DLQ_PATH` as the DLQ entry.
+7. Errors via `st.error` with friendly text; wrap the extraction call so no
+   stack trace ever reaches the user. Show a spinner while extracting.
+
+To satisfy feature 5, make one small supporting change:
+
+- `src/fallback.py`: add keyword-only `prompt_log: list[str] | None = None`
+  to `run_fallback`; when provided, append each rendered reflection prompt
+  (the full `REFLECTION_PROMPT.format(...)` string) to it before sending.
+- `src/extractor.py`: add the same optional kwarg to `extract_with_retry`
+  and pass it through. Do NOT add fields to `ExtractionResult`.
+
+Keep `app.py` a thin view — no extraction or validation logic beyond the
+reconciliation recompute for the badge. Use `st.set_page_config` and a clean
+two-column layout. App runs via `uv run streamlit run src/app.py` from the
+repo root.
+
+Return: the complete `src/app.py` plus the diffs for the two signature
+changes.
+```
+
+### What was generated
+
+- `src/app.py` — Streamlit UI: PDF upload + paste input, reflection toggle,
+  Extract / Simulate Edge Case Failure buttons, results kept in
+  `st.session_state`, side-by-side raw text vs
+  `st.json(validated_data.model_dump(mode="json"))`, `st.badge` status +
+  reconciliation badges (recomputed sums, numeric diff vs `TOLERANCE`),
+  audit panel (attempts, full `error_log`, exact per-attempt reflection
+  prompts), last DLQ line shown on `DLQ_FAILED`, friendly `st.error`
+  only — no stack traces
+- `src/fallback.py` — `run_fallback(..., prompt_log: list[str] | None = None)`
+  appends each rendered `REFLECTION_PROMPT` before sending
+- `src/extractor.py` — `extract_with_retry(..., prompt_log=None)` passes
+  the kwarg through to `run_fallback`
+
+### Bugs / issues found
+
+- `ModuleNotFoundError: No module named 'src'` on `uv run streamlit run
+  src/app.py` — `streamlit run` puts the script's own directory (`src/`) on
+  `sys.path`, not the repo root, so `from src.extractor import ...` fails
+- `use_container_width` is deprecated (project Streamlit skill) — replaced
+  with `width="stretch"` on both buttons
+- `developing-with-streamlit` skill was installed as a symlink into the
+  gitignored `.venv` under `.agents/skills/` — copied real files to
+  `.devin/skills/developing-with-streamlit/` so it survives a fresh clone
+
+### Fixes made
+
+- `sys.path.insert(0, repo_root)` at the top of `src/app.py` before the
+  `from src.*` imports; buttons now use `width="stretch"` (pending commit)

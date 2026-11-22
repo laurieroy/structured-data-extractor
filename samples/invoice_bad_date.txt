@@ -1,0 +1,16 @@
+INVOICE
+Northwind Consulting LLC
+Invoice #: INV-2024-0902
+Date: 13/13/2024
+
+Bill To: Acme Manufacturing, 412 Industrial Pkwy, Seattle WA
+
+ITEMS
+- Priority support retainer        qty 2   @ $375.25     line total $750.50
+- Consulting services              qty 12  @ $124.95     line total $1,499.40
+
+SUBTOTAL: $2,249.90
+TAX (8%): $179.99
+TOTAL DUE: $2,429.89
+
+Payment terms: net 30. Currency: USD.

@@ -1,0 +1,16 @@
+INVOICE
+Northwind Consulting LLC
+Invoice #: INV-2024-0901
+Date: November 3, 2024
+
+Bill To: Acme Manufacturing, 412 Industrial Pkwy, Seattle WA
+
+ITEMS
+- Cloud hosting & maintenance      qty 1   @ $4,800.00   line total $4,800.00
+- Onsite network audit             qty 2   @ $165.00     line total $330.00
+
+SUBTOTAL: $5,184.00
+TAX (8%): $414.72
+TOTAL DUE: $5,598.72
+
+Payment terms: net 30. Currency: USD.
