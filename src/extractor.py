@@ -1,4 +1,5 @@
 import io
+import json
 import os
 from pathlib import Path
 
@@ -78,6 +79,11 @@ def _last_raw_from(exc: Exception) -> str:
     completion = getattr(exc, "last_completion", None)
     if completion is None:
         return str(exc)
+    content = getattr(completion, "content", None)
+    if isinstance(content, list):
+        for block in content:
+            if getattr(block, "type", None) == "tool_use":
+                return json.dumps(getattr(block, "input", None))
     dump = getattr(completion, "model_dump_json", None)
     return dump() if dump else str(completion)
 
@@ -87,6 +93,7 @@ def extract_with_retry(
     max_retries: int = 3,
     use_reflection: bool = True,
     simulate_failure: bool = False,
+    prompt_log: list[str] | None = None,
 ) -> ExtractionResult:
     if simulate_failure:
         return dlq_result(
@@ -132,6 +139,7 @@ def extract_with_retry(
             error_log=error_log,
             max_retries=max_retries,
             use_reflection=use_reflection,
+            prompt_log=prompt_log,
         )
 
 
