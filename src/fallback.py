@@ -53,6 +53,7 @@ def run_fallback(
     error_log: list[str],
     max_retries: int,
     use_reflection: bool = True,
+    prompt_log: list[str] | None = None,
 ) -> ExtractionResult:
     last_errors: list = []
     attempts_made = 1
@@ -68,13 +69,17 @@ def run_fallback(
             last_raw=last_raw,
             errors=errors_text,
         )
+        if prompt_log is not None:
+            prompt_log.append(prompt)
         try:
             resp = raw_client.messages.create(
                 model=model,
                 max_tokens=2048,
                 messages=[{"role": "user", "content": prompt}],
             )
-            last_raw = resp.content[0].text
+            last_raw = "".join(
+                getattr(b, "text", "") or "" for b in resp.content
+            )
         except Exception as exc:
             error_log.append(f"attempt {attempt}: API error: {exc}")
             continue

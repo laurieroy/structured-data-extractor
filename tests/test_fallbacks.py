@@ -331,6 +331,46 @@ def test_repair_json_failure_returns_dlq(monkeypatch, dlq_file):
     assert any("repair" in e.lower() for e in result.error_log)
 
 
+def test_reflection_skips_thinking_blocks():
+    """Regression: content[0] may be a ThinkingBlock, not text."""
+    thinking = Mock(spec=["type", "thinking"])
+    thinking.type = "thinking"
+    text = Mock(spec=["type", "text"])
+    text.type = "text"
+    text.text = json.dumps(GOLDEN_PAYLOAD)
+    resp = Mock()
+    resp.content = [thinking, text]
+    raw_client = Mock()
+    raw_client.messages.create.return_value = resp
+
+    result = _run_fallback(raw_client)
+
+    assert result.execution_status == "REPAIRED_VIA_REFLECTION"
+    assert result.validated_data is not None
+    assert result.validated_data.invoice_number == "INV-2024-0847"
+
+
+def test_last_raw_extracts_tool_use_input(monkeypatch):
+    """Regression: last_raw should be the tool_use input, not the envelope."""
+    tool_block = Mock(spec=["type", "input"])
+    tool_block.type = "tool_use"
+    tool_block.input = {"invoice_number": "BAD-1"}
+    completion = Mock(spec=["content"])
+    completion.content = [tool_block]
+    exc = RuntimeError("validation failed")
+    exc.last_completion = completion
+    client = Mock()
+    client.messages.create.side_effect = exc
+    monkeypatch.setattr(
+        "src.extractor._clients", lambda: (client, Mock(), "test-model")
+    )
+
+    captured = _capture_run_fallback(monkeypatch)
+    extract_with_retry("INVOICE\nTotal due: $5,184.00")
+
+    assert json.loads(captured["last_raw"]) == {"invoice_number": "BAD-1"}
+
+
 def test_dlq_write_failure_still_returns_result(monkeypatch, tmp_path):
     blocker = tmp_path / "blocker"
     blocker.write_text("not a directory")
