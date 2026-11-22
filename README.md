@@ -12,43 +12,59 @@ upload, side-by-side output, and audit logging.
 > `docs/week4_assignment.md`). Only the repository scaffold exists so far —
 > the extraction pipeline, UI, and tests are not yet implemented.
 
+**Stack:** Python 3.11 · uv · Pydantic v2 · Anthropic (Claude) via `instructor`
+· `pypdf` · `beautifulsoup4` · `json-repair` · Streamlit · pytest
+
 ## Setup
 
 Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
-cp .env.example .env   # then add your LLM API key to .env
+cp .env.example .env   # then add your ANTHROPIC_API_KEY and set EXTRACTOR_MODEL
 ```
 
 `.env` is gitignored; only `.env.example` (with placeholder values) is
 committed. Never commit real API keys.
+
+The default extractor is `claude-haiku-5-5` (cheapest; extraction is its stated
+use case). If it struggles on the messy samples, upgrade `EXTRACTOR_MODEL` to
+e.g. `claude-sonnet-5-5`.
+
+## Commands
+
+```bash
+uv run pytest -v                    # run the test suite
+uv run streamlit run src/app.py     # start the web UI
+```
 
 ## Project structure
 
 ```
 structured-data-extractor/
 ├── pyproject.toml
-├── .env.example          # placeholder env vars — copy to .env and fill in
+├── .python-version         # Python 3.11 pin
+├── .env.example            # placeholder env vars — copy to .env and fill in
 ├── .gitignore
 ├── README.md
-├── ai_prompt_log.md      # AI generation prompts, raw output, audit findings
+├── ai_prompt_log.md        # AI generation prompts, raw output, audit findings
+├── .devin/
+│   └── skills/web-qa/      # /web-qa project QA checklist (manual trigger)
 ├── docs/
-│   ├── week4_assignment.md
-│   └── week4_work_plan.md
+│   ├── week4_assignment.md # assignment spec
+│   ├── week4_work_plan.md  # milestone plan M0–M7
+│   └── agent_setup.md      # M0 secrets/permissions setup procedure
 ├── samples/
 │   ├── invoice_messy.pdf
 │   └── vendor_contract.html
 ├── src/
 │   ├── __init__.py
-│   ├── schemas.py        # Pydantic v2 models
-│   ├── extractor.py      # extraction + validation engine
-│   ├── fallback.py       # reflection re-prompting + heuristic repair
-│   └── app.py            # Streamlit UI
+│   ├── schemas.py          # Pydantic v2 models
+│   ├── extractor.py        # extraction + validation engine
+│   ├── fallback.py         # reflection re-prompting + heuristic repair
+│   └── app.py              # Streamlit UI
 └── tests/
     ├── __init__.py
-    ├── test_schemas.py
-    ├── test_extractor.py
-    ├── test_fallback.py
-    └── test_app.py
+    ├── test_extraction.py  # Tests 1–3: schema + golden extraction
+    └── test_fallbacks.py   # Tests 4–5: reflection + DLQ
 ```

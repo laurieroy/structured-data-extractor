@@ -1,6 +1,6 @@
 # Work Plan: Resilient Data Extraction Pipeline
 
-Companion to `wee4_assignment.md`. Built with AI agents, gated by human review.
+Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 
 **How to use this file:** work top to bottom. Tick a checkbox only when its *Definition of Done* is met and you have run the tests yourself. Commit after every completed milestone.
 
@@ -9,7 +9,7 @@ Companion to `wee4_assignment.md`. Built with AI agents, gated by human review.
 ## Working Rules (apply to every milestone)
 
 1. **One agent task per milestone.** Never ask for the whole system at once.
-2. **Spec lives in the repo.** Keep `wee4_assignment.md` and a `AGENTS.md` at the root.
+2. **Spec lives in the repo.** Keep `week4_assignment.md` and an `AGENTS.md` at the root.
 3. **Tests first.** Agent writes tests, confirm they fail, then implement until green.
 4. **You are the gate.** Run `pytest -v` yourself and skim the diff before moving on.
 5. **Commit after each green milestone** with a message saying what changed and why.
@@ -57,15 +57,15 @@ Companion to `wee4_assignment.md`. Built with AI agents, gated by human review.
 - [ ] Reconciliation rule, written down (suggested: `sum(line_total) ≈ subtotal` and `subtotal + tax_amount ≈ total_amount`, tolerance 0.02)
 - [ ] Max retries and backoff policy (default: 3 retries, exponential backoff)
 
-**Agent task:** scaffold the repo exactly per the assignment structure; run the `uv` setup commands; create `.env.example`, `.gitignore`, `AGENTS.md`, `PROGRESS.md`.
+**Agent task:** scaffold the repo exactly per the assignment structure; run the `uv` setup commands; create `.env.example`, `.gitignore`, `AGENTS.md`.
 
 **Also do (human):** create or collect `samples/invoice_messy.pdf` (include odd formats such as `$1,249.50` and "12th of Oct, 2024") and `samples/vendor_contract.html`. Add an API key to `.env`.
 
 **Definition of Done**
-- [ ] Folder structure matches the assignment
-- [ ] `uv run python -c "import pydantic, instructor"` succeeds
-- [ ] One "hello world" LLM call succeeds
-- [ ] First commit made
+- [x] Folder structure matches the assignment
+- [x] `uv run python -c "import pydantic, instructor"` succeeds
+- [x] One "hello world" LLM call succeeds
+- [x] First commit made
 
 ---
 
@@ -226,6 +226,9 @@ Companion to `wee4_assignment.md`. Built with AI agents, gated by human review.
 - [ ] Uploaded to YouTube (unlisted/public); link tested logged out
 
 **Submission**
+- [ ] `pyproject.toml` dependency cleanup — remove anything unused (likely candidates:
+      `fastapi`/`uvicorn` if Streamlit-only, `openai` if Anthropic-only), then `uv sync`
+      and re-run `uv run pytest -v`
 - [ ] Repo is public (or accessible to the grader) and pushed
 - [ ] Submission template filled in and submitted in the LMS
 

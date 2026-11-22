@@ -4,7 +4,6 @@ description: Run the course web-project QA checklist (functionality, deployment/
 argument-hint: "<url>"
 triggers:
   - user
-  - model
 allowed-tools:
   - read
   - exec

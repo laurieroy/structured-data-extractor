@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.development)",
+      "Read(.env.production)",
+      "Read(.env.test)",
+      "Read(.env.*.local)",
+      "Read(.streamlit/secrets.toml)",
+      "Write(.env)",
+      "Write(.env.local)",
+      "Write(.env.development)",
+      "Write(.env.production)",
+      "Write(.env.test)",
+      "Write(.env.*.local)",
+      "Write(.streamlit/secrets.toml)",
+      "Exec(cat .env)",
+      "Exec(cat .env.local)",
+      "Exec(cat .streamlit/secrets.toml)"
+    ]
+  }
+}

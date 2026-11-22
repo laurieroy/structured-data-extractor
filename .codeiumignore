@@ -1,0 +1,7 @@
+# Keep real secrets out of the agent's context entirely
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+.devin/config.local.json
+.devin/mcp_config.local.json
