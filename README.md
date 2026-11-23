@@ -84,6 +84,8 @@ Messy values (`"$1,249.50"`, `"12th of Oct, 2024"`) are pre-parsed in
 Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
+git clone https://github.com/laurieroy/structured-data-extractor.git
+cd structured-data-extractor
 uv sync
 cp .env.example .env   # then add your ANTHROPIC_API_KEY and set EXTRACTOR_MODEL
 ```
@@ -99,6 +101,7 @@ e.g. `claude-sonnet-5-5`.
 
 ```bash
 uv run pytest -v                    # run the test suite
+uv run ruff check                   # lint (config in pyproject.toml)
 uv run streamlit run src/app.py     # start the web UI
 docker compose up --build           # run the app in a container (port 8501)
 ```
