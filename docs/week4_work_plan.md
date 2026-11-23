@@ -180,9 +180,9 @@ Companion to `week4_assignment.md`. Built with AI agents, gated by human review.
 - [x] Clear error display (no stack traces shown to the user)
 
 **Definition of Done**
-- [ ] The full demo script (below) runs from the UI with no terminal use
-- [ x] Works with reflection on and off
-- [x ] Committed
+- [x] The full demo script (below) runs from the UI with no terminal use
+- [x] Works with reflection on and off
+- [x] Committed
 
 ---
 

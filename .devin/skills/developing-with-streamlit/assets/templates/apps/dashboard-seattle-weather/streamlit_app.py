@@ -16,9 +16,8 @@
 
 import altair as alt
 import pandas as pd
-import vega_datasets
-
 import streamlit as st
+import vega_datasets
 
 st.set_page_config(
     # Title and icon for the browser's tab bar:

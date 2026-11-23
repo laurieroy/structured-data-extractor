@@ -1,0 +1,13 @@
+.git
+.devin/
+.venv/
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.env
+.env.*
+dlq/
+docs/
+samples/
+tests/
+.DS_Store

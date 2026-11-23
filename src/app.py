@@ -93,7 +93,7 @@ if extract_clicked or simulate_clicked:
     raw_text = None
     try:
         raw_text = _source_text()
-    except Exception:
+    except Exception:  # noqa: BLE001
         st.error(
             "Couldn't read that document. Try a different PDF or paste the "
             "text directly."
@@ -111,7 +111,7 @@ if extract_clicked or simulate_clicked:
                         simulate_failure=simulate_clicked,
                         prompt_log=prompt_log,
                     )
-            except Exception:
+            except Exception:  # noqa: BLE001
                 st.error(
                     "Extraction failed unexpectedly. Check the API key and "
                     "connection, then try again."

@@ -26,8 +26,9 @@ Python 3.11, uv, Pydantic v2, Anthropic via `instructor`, `pypdf`, `beautifulsou
   `subtotal + tax_amount ≈ total_amount`, both within 0.02
 - Max retries / backoff: 3 retries, exponential backoff
 - UI: `Streamlit`
-- Deployment: Option A — cloud (Streamlit Community Cloud / Render / Railway / HF
-  Spaces; pick the host in M6), secrets in the host's secret manager
+- Deployment: local Docker (`Dockerfile` + `docker-compose.yml`, on `m6-docker`).
+  `.env` passed via `env_file` — never baked into the image. Cloud deploy was
+  dropped in M6.
 - DLQ sink: `dlq/failed_extractions.jsonl` (one JSON object per line: timestamp, raw
   payload, error list, failure flag)
 - `DECISIONS.md` is the running decision log: whenever direction or tradeoffs are

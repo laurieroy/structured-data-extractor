@@ -449,3 +449,36 @@ changes.
 - Regression tests `test_reflection_skips_thinking_blocks` and
   `test_last_raw_extracts_tool_use_input` added; `uv run pytest -v`
   → 22 passed
+
+## M6 — Packaging: local Docker (cloud deploy dropped)
+
+**Model used:** devin/swe-2-high
+
+### Prompt used (paraphrased)
+
+Switch the deployment decision from cloud to local. New branch `m6-docker`;
+add a security-hardening TODO list to the README (rate limiting, auth,
+upload caps, XSS, CSRF/CORS, durable DLQ, session-state hygiene); write a
+`Dockerfile` and `docker-compose.yml` per the work-plan checklist.
+
+### What was generated
+
+- `Dockerfile` — `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` base,
+  `uv sync --frozen --no-dev` with the lockfile copied in a separate layer
+  for caching, `src/` only, runs `.venv/bin/streamlit` headless on 0.0.0.0
+- `docker-compose.yml` — port 8501, `.env` via `env_file` (key passed at
+  runtime, not baked in), `./dlq` bind mount so the DLQ survives the
+  container
+- `.dockerignore` — excludes `.venv`, `.git`, `.env*`, `dlq/`, `tests/`,
+  `docs/`, `samples/`
+- `README.md` — Docker run commands, project-structure entries, and a
+  "Security hardening (TODO)" checklist for any future public exposure
+- `DECISIONS.md` / `AGENTS.md` — deployment decision updated to local Docker
+
+### Bugs / issues found
+
+- None found. `docker compose up --build` pending user verification.
+
+### Fixes made
+
+- None.
