@@ -1,6 +1,6 @@
 import re
 from datetime import date
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -88,7 +88,7 @@ class InvoiceExtraction(BaseModel):
 
 
 class ExtractionResult(BaseModel):
-    validated_data: Optional[InvoiceExtraction]
+    validated_data: InvoiceExtraction | None
     attempts_used: int
     error_log: list[str]
     execution_status: Literal[

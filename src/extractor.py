@@ -5,8 +5,8 @@ from pathlib import Path
 
 import instructor
 from anthropic import (
-    APIError,
     Anthropic,
+    APIError,
     AuthenticationError,
     BadRequestError,
     PermissionDeniedError,
@@ -123,7 +123,7 @@ def extract_with_retry(
             error_log=error_log,
             execution_status="SUCCESS",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         if isinstance(
             exc, (AuthenticationError, BadRequestError, PermissionDeniedError)
         ):

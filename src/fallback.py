@@ -1,6 +1,6 @@
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from json_repair import repair_json
@@ -80,7 +80,7 @@ def run_fallback(
             last_raw = "".join(
                 getattr(b, "text", "") or "" for b in resp.content
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             error_log.append(f"attempt {attempt}: API error: {exc}")
             continue
         try:
@@ -111,7 +111,7 @@ def run_fallback(
             error_log=error_log,
             execution_status="REPAIRED_VIA_REFLECTION",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         error_log.append(f"json_repair stage: {exc}")
 
     return dlq_result(raw_text, last_raw, error_log, attempts_used=attempts_made)
@@ -133,7 +133,7 @@ def _write_dlq(raw_text: str, last_raw: str, error_log: list[str]) -> None:
     try:
         DLQ_PATH.parent.mkdir(parents=True, exist_ok=True)
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "raw_payload": last_raw,
             "source_excerpt": raw_text[:500],
             "errors": list(error_log),

@@ -18,9 +18,8 @@ from collections.abc import Iterable
 
 import altair as alt
 import pandas as pd
-import yfinance as yf
-
 import streamlit as st
+import yfinance as yf
 
 st.set_page_config(
     page_title="Stock peer analysis dashboard",
